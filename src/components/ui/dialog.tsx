@@ -6,9 +6,10 @@ interface DialogProps {
   isOpen: boolean
   onClose: () => void
   children: React.ReactNode
+  className?: string
 }
 
-export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, children }) => {
+export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, children, className }) => {
   React.useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose()
@@ -34,7 +35,7 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, children }) => 
       />
       
       {/* Content Wrapper */}
-      <div className="relative w-full max-w-lg z-50 transform rounded-xl border border-border bg-card p-6 shadow-2xl transition-all duration-300 ease-out animate-scale-in">
+      <div className={cn("relative w-full max-w-lg z-50 transform rounded-xl border border-border bg-card p-6 shadow-2xl transition-all duration-300 ease-out animate-scale-in", className)}>
         {/* Close Button */}
         <button
           onClick={onClose}

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -7,298 +9,470 @@ import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Search,
-  Filter,
   Check,
   X,
   Eye,
   Trash2,
   AlertTriangle,
   FolderOpen,
-  ArrowUpDown,
-  BookOpen
+  Copy,
+  Download,
+  Clock,
+  Sparkles,
+  Info,
+  Calendar,
+  HardDrive,
+  Briefcase,
+  User,
+  Shield,
+  ExternalLink,
+  ChevronDown,
+  Layers,
+  GraduationCap,
+  FileCode,
+  FileText,
+  CheckCircle,
+  RefreshCw,
+  FileDown,
+  ThumbsUp
 } from 'lucide-react';
 
 interface NoteItem {
   id: string;
-  title: string;
-  subject: string;
-  author: string;
-  semester: string;
-  date: string;
-  status: 'Pending' | 'Approved' | 'Flagged';
-  downloads: number;
-  description: string;
+  documentId?: string;
+  title?: string;
+  subject?: string;
+  displaySubject?: string;
+  documentType?: string;
+  type?: string;
+  uploaderName?: string;
+  uploaderId?: string;
+  uploaderUid?: string;
+  uid?: string;
+  branch?: string;
+  semester?: string;
+  fileSize?: any;
+  downloadsCount?: number;
+  viewsCount?: number;
+  likesCount?: number;
+  upvotes?: number;
+  isVerified?: boolean;
+  uploadedAt?: any;
+  uploadTimestamp?: any;
+  fileUrl?: string;
+  fileType?: string;
+  fileExtension?: string;
+  storagePath?: string;
+  mimeType?: string;
+}
+
+interface ToastState {
+  message: string | null;
+  type: 'success' | 'info' | 'error';
 }
 
 export const Notes: React.FC = () => {
-  // Mock Notes List
-  const [notes, setNotes] = useState<NoteItem[]>([
-    {
-      id: 'N001',
-      title: 'Database Management Systems Complete Lecture Notes',
-      subject: 'Computer Science',
-      author: 'Aravind Swamy',
-      semester: 'Semester 5',
-      date: '2026-05-28',
-      status: 'Pending',
-      downloads: 0,
-      description: 'Handwritten notes covering ER diagrams, Relational Algebra, SQL normalization, indexing, and transactional states.',
-    },
-    {
-      id: 'N002',
-      title: 'Machine Learning algorithms cheatsheets and notes',
-      subject: 'Data Science',
-      author: 'Neha Deshmukh',
-      semester: 'Semester 7',
-      date: '2026-05-26',
-      status: 'Approved',
-      downloads: 142,
-      description: 'Quick guide containing mathematical summaries of Linear/Logistic Regression, SVM, KNN, Random Forests, and Gradient Boosting.',
-    },
-    {
-      id: 'N003',
-      title: 'Thermodynamics Formulas & Derivations guide',
-      subject: 'Mechanical Eng.',
-      author: 'Vikram Malhotra',
-      semester: 'Semester 3',
-      date: '2026-05-25',
-      status: 'Approved',
-      downloads: 88,
-      description: 'Comprehensive derivation of First, Second, and Third Laws of Thermodynamics along with Carnot cycle efficiency proofs.',
-    },
-    {
-      id: 'N004',
-      title: 'Introductory Microeconomics Syllabus Summary',
-      subject: 'Economics',
-      author: 'Sneha Roy',
-      semester: 'Semester 1',
-      date: '2026-05-24',
-      status: 'Flagged',
-      downloads: 4,
-      description: 'Brief overview of demand-supply curves, elasticities, consumer behaviors, and market structural margins.',
-    },
-    {
-      id: 'N005',
-      title: 'Compiler Design Syntax Analysis & Parsing notes',
-      subject: 'Computer Science',
-      author: 'Rohan Sharma',
-      semester: 'Semester 6',
-      date: '2026-05-20',
-      status: 'Pending',
-      downloads: 0,
-      description: 'Deep dive into LL(1) parsing tables, LR(0), SLR(1), LALR(1) compiler stages, and parser generator configurations.',
-    },
-  ]);
-
-  // States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Flagged'>('All');
-  const [subjectFilter, setSubjectFilter] = useState('All');
+  const [notes, setNotes] = useState<NoteItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<NoteItem | null>(null);
-  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
+  const [copiedType, setCopiedType] = useState<'fileUrl' | 'docId' | 'uploaderId' | null>(null);
 
-  // Filtered Notes
+  // Filter & Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'All' | 'Notes' | 'Assignment' | 'PYQ' | 'Cheat Sheet'>('All');
+  const [sortBy, setSortBy] = useState<'Latest' | 'Downloads' | 'Views'>('Latest');
+
+  // Confirmation dialog states
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'verify' | 'reject' | 'delete';
+    label: string;
+    description: string;
+  } | null>(null);
+
+  // Toast notifications state
+  const [toast, setToast] = useState<ToastState>({ message: null, type: 'success' });
+
+  const fetchNotes = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const querySnapshot = await getDocs(collection(db, 'notes'));
+      const fetchedNotes: NoteItem[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as NoteItem;
+        fetchedNotes.push({
+          ...data,
+          id: data.documentId || doc.id
+        });
+      });
+      setNotes(fetchedNotes);
+    } catch (err: any) {
+      console.error("Error fetching notes collection from Firestore:", err);
+      setError("Failed to fetch notes directory from Firestore database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotes();
+  }, []);
+
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => prev.message === message ? { ...prev, message: null } : prev);
+    }, 3000);
+  };
+
+  const handleCopyText = (text: string, type: 'fileUrl' | 'docId' | 'uploaderId') => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedType(type);
+      showToast(`${type === 'fileUrl' ? 'File URL' : type === 'docId' ? 'Document ID' : 'Uploader ID'} copied!`, 'success');
+      setTimeout(() => setCopiedType(null), 2000);
+    }).catch(err => {
+      console.error("Clipboard write failure:", err);
+      showToast("Copy failed", 'error');
+    });
+  };
+
+  const handleTriggerAction = (type: 'verify' | 'reject' | 'delete') => {
+    const labels = {
+      verify: 'Verify Document',
+      reject: 'Reject Document',
+      delete: 'Delete Document'
+    };
+    const descriptions = {
+      verify: `Are you sure you want to verify "${selectedNote?.title || 'this document'}"? This makes the resource verified and fully visible for download.`,
+      reject: `Are you sure you want to reject "${selectedNote?.title || 'this document'}"? This flags the resource and restricts download access.`,
+      delete: `Are you sure you want to permanently delete "${selectedNote?.title || 'this document'}"? This clears all document metadata from the catalog.`
+    };
+    setConfirmAction({
+      type,
+      label: labels[type],
+      description: descriptions[type]
+    });
+  };
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+    const messages = {
+      verify: 'Document verified (Demo)',
+      reject: 'Document rejected (Demo)',
+      delete: 'Document deleted (Demo)'
+    };
+    showToast(messages[confirmAction.type], 'success');
+    setConfirmAction(null);
+  };
+
+  const handleOpenDetails = (note: NoteItem) => {
+    setSelectedNote(note);
+    setIsDetailOpen(true);
+    setCopiedType(null);
+  };
+
+  // Helper formatting size
+  const formatFileSize = (bytes: any) => {
+    if (bytes === undefined || bytes === null || bytes === '') return '—';
+    const num = Number(bytes);
+    if (isNaN(num)) return bytes.toString();
+    if (num === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(num) / Math.log(k));
+    return parseFloat((num / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  // Helper formatting date
+  const renderDateField = (val: any) => {
+    if (!val) return <span className="text-muted-foreground/50 italic text-xs">—</span>;
+    try {
+      if (typeof val.toDate === 'function') {
+        const date = val.toDate();
+        return <span>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>;
+      }
+      if (typeof val.seconds === 'number') {
+        const date = new Date(val.seconds * 1000);
+        return <span>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>;
+      }
+      const date = new Date(val);
+      if (!isNaN(date.getTime())) {
+        return <span>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>;
+      }
+    } catch (e) {
+      console.error("Error formatting date:", e);
+    }
+    return <span className="text-muted-foreground/50 italic text-xs">—</span>;
+  };
+
+  // Truncate document id helper
+  const renderDocumentId = (id: string) => {
+    if (!id) return '—';
+    const short = id.length > 8 ? `${id.substring(0, 8)}...` : id;
+    return (
+      <span className="font-mono text-xs text-muted-foreground cursor-help" title={id}>
+        {short}
+      </span>
+    );
+  };
+
+  // 1. Search Query Filters
   const filteredNotes = notes.filter((note) => {
-    const matchesSearch =
-      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.id.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'All' || note.status === statusFilter;
-    const matchesSubject = subjectFilter === 'All' || note.subject === subjectFilter;
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
 
-    return matchesSearch && matchesStatus && matchesSubject;
+    const titleMatch = note.title?.toLowerCase().includes(q) || false;
+    const subjectMatch = note.displaySubject?.toLowerCase().includes(q) || note.subject?.toLowerCase().includes(q) || false;
+    const uploaderMatch = note.uploaderName?.toLowerCase().includes(q) || false;
+    const idMatch = note.id?.toLowerCase().includes(q) || false;
+
+    return titleMatch || subjectMatch || uploaderMatch || idMatch;
   });
 
-  // Action Handlers
-  const handleApprove = (id: string) => {
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, status: 'Approved' } : n))
-    );
-    if (selectedNote && selectedNote.id === id) {
-      setSelectedNote((prev) => (prev ? { ...prev, status: 'Approved' } : null));
+  // 2. Document Type Filters
+  const typeFilteredNotes = filteredNotes.filter((note) => {
+    if (typeFilter === 'All') return true;
+
+    const rawType = (note.documentType || note.type || '').toString().toLowerCase().trim();
+    if (typeFilter === 'Notes') {
+      return rawType.includes('note');
     }
-    setIsReviewOpen(false);
+    if (typeFilter === 'Assignment') {
+      return rawType.includes('assign');
+    }
+    if (typeFilter === 'PYQ') {
+      return rawType.includes('pyq') || rawType.includes('exam') || rawType.includes('paper');
+    }
+    if (typeFilter === 'Cheat Sheet') {
+      return rawType.includes('cheat') || rawType.includes('formula');
+    }
+    return true;
+  });
+
+  // Helper date ms resolution
+  const getTimestampMs = (val: any): number => {
+    if (!val) return 0;
+    if (typeof val.toDate === 'function') return val.toDate().getTime();
+    if (typeof val.seconds === 'number') return val.seconds * 1000;
+    const parsed = new Date(val).getTime();
+    return isNaN(parsed) ? 0 : parsed;
   };
 
-  const handleFlag = (id: string) => {
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, status: 'Flagged' } : n))
-    );
-    if (selectedNote && selectedNote.id === id) {
-      setSelectedNote((prev) => (prev ? { ...prev, status: 'Flagged' } : null));
+  // 3. Sorting
+  const sortedNotes = [...typeFilteredNotes].sort((a, b) => {
+    if (sortBy === 'Latest') {
+      const timeA = getTimestampMs(a.uploadedAt || a.uploadTimestamp);
+      const timeB = getTimestampMs(b.uploadedAt || b.uploadTimestamp);
+      return timeB - timeA;
     }
-    setIsReviewOpen(false);
-  };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to permanently delete this resource?')) {
-      setNotes((prev) => prev.filter((n) => n.id !== id));
-      setIsReviewOpen(false);
+    if (sortBy === 'Downloads') {
+      const dlA = Number(a.downloadsCount !== undefined ? a.downloadsCount : (a.downloads || 0));
+      const dlB = Number(b.downloadsCount !== undefined ? b.downloadsCount : (b.downloads || 0));
+      return dlB - dlA;
     }
-  };
-
-  const openReview = (note: NoteItem) => {
-    setSelectedNote(note);
-    setIsReviewOpen(true);
-  };
+    if (sortBy === 'Views') {
+      const vA = Number(a.viewsCount || 0);
+      const vB = Number(b.viewsCount || 0);
+      return vB - vA;
+    }
+    return 0;
+  });
 
   return (
     <div className="space-y-6">
-      {/* Title Header */}
+      {/* Header Panel */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight font-heading">Notes Repository Management</h2>
           <p className="text-sm text-muted-foreground">
-            Verify lecture notes, slides, and class summaries uploaded by students.
+            Audit, verify, and manage student-submitted lecture papers, cheatsheets, and academic documents.
           </p>
         </div>
+        <Button variant="outline" size="sm" onClick={fetchNotes} className="flex items-center gap-1.5 shrink-0 bg-card">
+          <RefreshCw className="h-3.5 w-3.5" /> Reload Catalog
+        </Button>
       </div>
 
-      {/* Filters and Search toolbar */}
-      <Card className="border-border">
+      {/* Search and Filters toolbar */}
+      <Card className="border-border bg-card/50 backdrop-blur-sm shadow-premium">
         <CardContent className="p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           {/* Search bar */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search by title, author, or document ID..."
+              placeholder="Search directory by title, subject, uploader name, or document ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 bg-accent/20 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
             />
           </div>
 
           {/* Quick Filters */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Status Selector */}
+            {/* Type Selector Buttons */}
             <div className="flex items-center gap-1 bg-accent/40 rounded-lg p-0.5 border border-border">
-              {(['All', 'Pending', 'Approved', 'Flagged'] as const).map((status) => (
+              {(['All', 'Notes', 'Assignment', 'PYQ', 'Cheat Sheet'] as const).map((type) => (
                 <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
+                  key={type}
+                  onClick={() => setTypeFilter(type)}
                   className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150
-                    ${statusFilter === status
+                    ${typeFilter === type
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                     }
                   `}
                 >
-                  {status}
+                  {type}
                 </button>
               ))}
             </div>
 
-            {/* Subject Selector */}
-            <Select
-              className="w-40 text-xs"
-              value={subjectFilter}
-              onChange={(e) => setSubjectFilter(e.target.value)}
-            >
-              <option value="All">All Subjects</option>
-              <option value="Computer Science">Computer Science</option>
-              <option value="Data Science">Data Science</option>
-              <option value="Mechanical Eng.">Mechanical Eng.</option>
-              <option value="Economics">Economics</option>
-            </Select>
+            {/* Sort Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap font-medium">Sort by:</span>
+              <Select
+                className="w-36 text-xs bg-background"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+              >
+                <option value="Latest">Latest Upload</option>
+                <option value="Downloads">Most Downloaded</option>
+                <option value="Views">Most Viewed</option>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Main Table */}
-      <Card className="border-border overflow-hidden">
+      {/* Table Section */}
+      <Card className="border-border overflow-hidden shadow-premium">
         <CardContent className="p-0">
-          {filteredNotes.length === 0 ? (
-            /* Empty State */
-            <div className="p-16 flex flex-col items-center justify-center text-center">
-              <div className="h-16 w-16 rounded-full bg-accent flex items-center justify-center text-muted-foreground mb-4">
-                <FolderOpen className="h-8 w-8" />
+          {loading ? (
+            /* Table Loading Skeletons */
+            <div className="p-8 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <div className="h-4 w-28 bg-accent/60 rounded animate-pulse" />
+                <div className="h-4 w-44 bg-accent/60 rounded animate-pulse" />
+                <div className="h-4 w-32 bg-accent/60 rounded animate-pulse" />
+                <div className="h-4 w-20 bg-accent/60 rounded animate-pulse" />
               </div>
-              <h3 className="text-lg font-bold">No documents match search parameters</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-1.5">
-                Try modifying your filter categories or clear the search input to see files.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-6"
-                onClick={() => {
-                  setSearchQuery('');
-                  setStatusFilter('All');
-                  setSubjectFilter('All');
-                }}
-              >
-                Clear All Filters
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between py-3 border-b border-border/40 last:border-0">
+                  <div className="h-4 w-16 bg-accent/60 rounded animate-pulse" />
+                  <div className="h-4 w-60 bg-accent/40 rounded animate-pulse" />
+                  <div className="h-4 w-24 bg-accent/40 rounded animate-pulse" />
+                  <div className="h-4 w-12 bg-accent/40 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            /* Query Error State */
+            <div className="p-16 text-center flex flex-col items-center justify-center">
+              <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
+              <h3 className="text-lg font-bold">Query Failure</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mt-1">{error}</p>
+              <Button variant="outline" size="sm" onClick={fetchNotes} className="mt-6">
+                Retry Query
               </Button>
             </div>
+          ) : sortedNotes.length === 0 ? (
+            /* Empty State */
+            <div className="p-16 text-center flex flex-col items-center justify-center">
+              <div className="h-16 w-16 rounded-full bg-accent/40 flex items-center justify-center mb-4">
+                <FolderOpen className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-bold">No Documents Found</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                {notes.length === 0
+                  ? "The notes collection in Firestore contains no document entries."
+                  : "No uploaded documents match your search parameters."}
+              </p>
+              {searchQuery && (
+                <Button variant="outline" size="sm" onClick={() => setSearchQuery('')} className="mt-6">
+                  Clear Search
+                </Button>
+              )}
+            </div>
           ) : (
-            /* Table Grid */
+            /* Data Table list */
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    <th className="p-4 w-20">ID</th>
-                    <th className="p-4">Document Title</th>
+                  <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                    <th className="p-4">Document ID</th>
+                    <th className="p-4 w-[25%]">Title</th>
                     <th className="p-4">Subject</th>
-                    <th className="p-4">Uploaded By</th>
-                    <th className="p-4">Upload Date</th>
-                    <th className="p-4 text-center">Status</th>
-                    <th className="p-4 text-right">Actions</th>
+                    <th className="p-4">Type</th>
+                    <th className="p-4">Uploader</th>
+                    <th className="p-4">Branch</th>
+                    <th className="p-4">Semester</th>
+                    <th className="p-4">File Size</th>
+                    <th className="p-4 text-center">Downloads</th>
+                    <th className="p-4 text-center">Views</th>
+                    <th className="p-4">Verification</th>
+                    <th className="p-4">Uploaded Date</th>
+                    <th className="p-4 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border text-sm">
-                  {filteredNotes.map((note) => (
+                <tbody className="divide-y divide-border text-sm whitespace-nowrap">
+                  {sortedNotes.map((note) => (
                     <tr key={note.id} className="hover:bg-accent/20 transition-colors duration-150">
-                      <td className="p-4 font-mono text-xs text-muted-foreground">{note.id}</td>
-                      <td className="p-4 max-w-xs md:max-w-md font-semibold truncate text-foreground/90">
-                        {note.title}
+                      <td className="p-4 font-mono text-xs">
+                        {renderDocumentId(note.id)}
                       </td>
-                      <td className="p-4 text-muted-foreground font-medium">{note.subject}</td>
-                      <td className="p-4 font-medium">{note.author}</td>
-                      <td className="p-4 text-xs text-muted-foreground">{note.date}</td>
-                      <td className="p-4 text-center">
-                        <Badge
-                          variant={
-                            note.status === 'Approved'
-                              ? 'success'
-                              : note.status === 'Flagged'
-                              ? 'destructive'
-                              : 'warning'
-                          }
-                        >
-                          {note.status}
+                      <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={note.title}>
+                        {note.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
+                      </td>
+                      <td className="p-4 text-muted-foreground font-medium">
+                        {note.displaySubject || note.subject || <span className="text-muted-foreground/50 italic">—</span>}
+                      </td>
+                      <td className="p-4">
+                        {note.documentType || note.type ? (
+                          <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-xs font-bold capitalize">
+                            {note.documentType || note.type}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/50 italic">—</span>
+                        )}
+                      </td>
+                      <td className="p-4 font-medium">
+                        {note.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
+                      </td>
+                      <td className="p-4">
+                        {note.branch || <span className="text-muted-foreground/50 italic">—</span>}
+                      </td>
+                      <td className="p-4">
+                        {note.semester || <span className="text-muted-foreground/50 italic">—</span>}
+                      </td>
+                      <td className="p-4 text-xs font-mono">
+                        {formatFileSize(note.fileSize)}
+                      </td>
+                      <td className="p-4 text-center font-bold">
+                        {(note.downloadsCount !== undefined ? note.downloadsCount : (note.downloads || 0)).toLocaleString()}
+                      </td>
+                      <td className="p-4 text-center font-bold">
+                        {(note.viewsCount || 0).toLocaleString()}
+                      </td>
+                      <td className="p-4">
+                        <Badge variant={note.isVerified === true ? 'success' : 'warning'}>
+                          {note.isVerified === true ? 'Verified' : 'Pending'}
                         </Badge>
                       </td>
+                      <td className="p-4 text-xs text-muted-foreground">
+                        {renderDateField(note.uploadedAt || note.uploadTimestamp)}
+                      </td>
                       <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            onClick={() => openReview(note)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {note.status !== 'Approved' && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/20"
-                              onClick={() => handleApprove(note.id)}
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDelete(note.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
+                          onClick={() => handleOpenDetails(note)}
+                        >
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -309,119 +483,350 @@ export const Notes: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Review Document Detail Dialog */}
-      <Dialog isOpen={isReviewOpen} onClose={() => setIsReviewOpen(false)}>
+      {/* Notes Details Dialog Modal - Wider max-w-2xl class with height constraints and flex layout */}
+      <Dialog isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} className="max-w-2xl max-h-[90vh] flex flex-col min-h-0">
         {selectedNote && (
-          <>
-            <DialogHeader>
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline">{selectedNote.id}</Badge>
-                <Badge
-                  variant={
-                    selectedNote.status === 'Approved'
-                      ? 'success'
-                      : selectedNote.status === 'Flagged'
-                      ? 'destructive'
-                      : 'warning'
-                  }
-                >
-                  {selectedNote.status}
-                </Badge>
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Sticky Header Section */}
+            <DialogHeader className="border-b border-border/80 pb-4 mb-4 text-left shrink-0 pr-8">
+              <div className="flex items-start gap-4">
+                {/* Category Icon */}
+                <div className={`p-4 rounded-2xl border shrink-0 ${
+                  (selectedNote.documentType || selectedNote.type || '').toString().toLowerCase().includes('note')
+                    ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20'
+                    : (selectedNote.documentType || selectedNote.type || '').toString().toLowerCase().includes('assign')
+                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                    : (selectedNote.documentType || selectedNote.type || '').toString().toLowerCase().includes('pyq') || (selectedNote.documentType || selectedNote.type || '').toString().toLowerCase().includes('exam')
+                    ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                    : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                }`}>
+                  {(selectedNote.documentType || selectedNote.type || '').toString().toLowerCase().includes('note') ? (
+                    <FileText className="h-8 w-8" />
+                  ) : (selectedNote.documentType || selectedNote.type || '').toString().toLowerCase().includes('assign') ? (
+                    <GraduationCap className="h-8 w-8" />
+                  ) : (selectedNote.documentType || selectedNote.type || '').toString().toLowerCase().includes('pyq') || (selectedNote.documentType || selectedNote.type || '').toString().toLowerCase().includes('exam') ? (
+                    <Layers className="h-8 w-8" />
+                  ) : (
+                    <FileCode className="h-8 w-8" />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap" title={selectedNote.title}>
+                    {selectedNote.title || <span className="text-muted-foreground/60 italic font-normal">Untitled Document</span>}
+                    <Badge className="text-[10px] py-0 px-2 uppercase font-extrabold tracking-wide">
+                      {selectedNote.documentType || selectedNote.type || 'Document'}
+                    </Badge>
+                  </DialogTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">
+                    {selectedNote.displaySubject || selectedNote.subject || 'No Subject Area'}
+                  </p>
+
+                  {/* Verification Status Badge */}
+                  <div className={`flex items-center gap-1 mt-2 text-xs font-bold px-2.5 py-0.5 rounded-full w-max ${
+                    selectedNote.isVerified
+                      ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20'
+                      : 'text-amber-500 bg-amber-500/10 border border-amber-500/20'
+                  }`}>
+                    {selectedNote.isVerified ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                    {selectedNote.isVerified ? 'Verified Document' : 'Pending Verification'}
+                  </div>
+                </div>
               </div>
-              <DialogTitle className="text-xl font-bold tracking-tight">
-                {selectedNote.title}
-              </DialogTitle>
-              <DialogDescription>
-                Uploaded by {selectedNote.author} on {selectedNote.date}
-              </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 my-2">
-              {/* Document metadata info grid */}
-              <div className="grid grid-cols-2 gap-4 bg-accent/40 rounded-xl p-3.5 border border-border/80 text-xs">
-                <div>
-                  <span className="text-muted-foreground block font-medium">Subject Area</span>
-                  <span className="font-semibold text-foreground mt-0.5 block">{selectedNote.subject}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block font-medium">Academic Period</span>
-                  <span className="font-semibold text-foreground mt-0.5 block">{selectedNote.semester}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block font-medium">Downloads</span>
-                  <span className="font-semibold text-foreground mt-0.5 block">{selectedNote.downloads} views</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block font-medium">Format Status</span>
-                  <span className="font-semibold text-foreground mt-0.5 block">Verified PDF Document</span>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Description</span>
-                <p className="text-sm text-foreground/80 leading-relaxed bg-accent/15 p-3 rounded-lg border border-border">
-                  {selectedNote.description}
-                </p>
-              </div>
-
-              {/* Mock PDF preview canvas layout */}
-              <div className="border border-border/80 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-accent/40 p-2.5 border-b border-border flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                  <span className="flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> preview_document.pdf (Page 1 of 12)</span>
-                  <span className="text-[10px] text-primary">Double Click to Zoom</span>
-                </div>
-                <div className="h-32 bg-neutral-100 dark:bg-neutral-900 flex flex-col items-center justify-center p-4">
-                  <div className="w-16 h-20 bg-white dark:bg-neutral-800 border border-border shadow-md rounded flex flex-col justify-between p-2">
-                    <div className="space-y-1">
-                      <div className="h-1 w-full bg-neutral-200 dark:bg-neutral-700 rounded" />
-                      <div className="h-1 w-4/5 bg-neutral-200 dark:bg-neutral-700 rounded" />
-                      <div className="h-1 w-5/6 bg-neutral-200 dark:bg-neutral-700 rounded" />
+            {/* Scrollable Dialog Content Body */}
+            <div className="flex-1 overflow-y-auto pr-2 py-1 space-y-6 select-text scrollbar-thin">
+              {/* File Information and Academic Information Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* File Information Card */}
+                <Card className="border-border bg-accent/15 p-4 flex flex-col justify-between space-y-3">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <HardDrive className="h-3.5 w-3.5" /> File Information
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">File Type</span>
+                      <span className="font-semibold text-foreground uppercase">{selectedNote.fileType || '—'}</span>
                     </div>
-                    <div className="h-1 w-1/3 bg-neutral-300 dark:bg-neutral-600 rounded align-bottom" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Extension</span>
+                        <span className="font-semibold text-foreground uppercase">.{selectedNote.fileExtension || 'pdf'}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">File Size</span>
+                        <span className="font-semibold text-foreground">{formatFileSize(selectedNote.fileSize)}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">MIME Type</span>
+                      <span className="font-semibold text-foreground font-mono text-[10px]">{selectedNote.mimeType || 'application/pdf'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Storage Path</span>
+                      <span className="font-mono text-[9px] text-foreground break-all bg-card/60 p-1.5 rounded border border-border/40 block">
+                        {selectedNote.storagePath || '—'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-xs text-muted-foreground mt-2 font-medium">Document content is OCR parsed and ready for download.</span>
+                </Card>
+
+                {/* Academic Context Card */}
+                <Card className="border-border bg-accent/15 p-4 flex flex-col justify-between space-y-3">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Briefcase className="h-3.5 w-3.5" /> Academic Context
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Subject</span>
+                      <span className="font-semibold text-foreground">{selectedNote.displaySubject || selectedNote.subject || '—'}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Branch</span>
+                        <span className="font-semibold text-foreground">{selectedNote.branch || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Semester</span>
+                        <span className="font-semibold text-foreground">{selectedNote.semester || '—'}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Uploaded Date</span>
+                      <span className="font-semibold text-foreground flex items-center gap-1 mt-0.5">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                        {renderDateField(selectedNote.uploadedAt || selectedNote.uploadTimestamp)}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Performance Metrics Cards */}
+              <div className="space-y-3">
+                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" /> Performance Metrics
+                </h4>
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Downloads */}
+                  <div className="bg-card border border-border/80 rounded-xl p-3 text-center shadow-sm">
+                    <Download className="h-4 w-4 text-emerald-500 mx-auto mb-1" />
+                    <span className="text-[9px] text-muted-foreground block truncate font-medium">Downloads</span>
+                    <span className="text-lg font-bold text-foreground mt-0.5 block">
+                      {(selectedNote.downloadsCount !== undefined ? selectedNote.downloadsCount : (selectedNote.downloads || 0)).toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* Views */}
+                  <div className="bg-card border border-border/80 rounded-xl p-3 text-center shadow-sm">
+                    <Eye className="h-4 w-4 text-blue-500 mx-auto mb-1" />
+                    <span className="text-[9px] text-muted-foreground block truncate font-medium">Views</span>
+                    <span className="text-lg font-bold text-foreground mt-0.5 block">
+                      {(selectedNote.viewsCount || 0).toLocaleString()}
+                    </span>
+                  </div>
+
+                  {/* Likes */}
+                  <div className="bg-card border border-border/80 rounded-xl p-3 text-center shadow-sm">
+                    <ThumbsUp className="h-4 w-4 text-rose-500 mx-auto mb-1" />
+                    <span className="text-[9px] text-muted-foreground block truncate font-medium">Likes</span>
+                    <span className="text-lg font-bold text-foreground mt-0.5 block">
+                      {(selectedNote.upvotes !== undefined ? selectedNote.upvotes : (selectedNote.likesCount || 0)).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               </div>
+
+              {/* Uploader Information Card */}
+              <Card className="border-border bg-accent/15 p-4 space-y-3">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5" /> Uploader Information
+                </h4>
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Uploader Name</span>
+                    <span className="font-semibold text-foreground">{selectedNote.uploaderName || 'Anonymous'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 justify-between bg-card/60 p-1.5 rounded border border-border/40">
+                    <div className="min-w-0">
+                      <span className="text-muted-foreground block text-[8px] uppercase tracking-wider font-semibold">Uploader ID</span>
+                      <span className="font-mono text-[10px] text-foreground block truncate">
+                        {selectedNote.uploaderId || selectedNote.uploaderUid || selectedNote.uid || '—'}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0"
+                      onClick={() => handleCopyText(selectedNote.uploaderId || selectedNote.uploaderUid || selectedNote.uid || '', 'uploaderId')}
+                      title="Copy Uploader ID"
+                    >
+                      {copiedType === 'uploaderId' ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Document Operations Card */}
+              <div className="space-y-3">
+                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Info className="h-3.5 w-3.5" /> Document Operations
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Open File Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-bold flex items-center gap-1.5 h-10 bg-card border-border/80 text-foreground hover:bg-accent/20"
+                    onClick={() => {
+                      if (selectedNote.fileUrl) {
+                        window.open(selectedNote.fileUrl, '_blank');
+                      } else {
+                        showToast("No File URL available", "error");
+                      }
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 text-primary" /> Open File
+                  </Button>
+
+                  {/* Copy File URL Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-bold flex items-center gap-1.5 h-10 bg-card border-border/80 text-foreground hover:bg-accent/20"
+                    onClick={() => {
+                      if (selectedNote.fileUrl) {
+                        handleCopyText(selectedNote.fileUrl, 'fileUrl');
+                      } else {
+                        showToast("No File URL available", "error");
+                      }
+                    }}
+                  >
+                    {copiedType === 'fileUrl' ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    Copy File URL
+                  </Button>
+
+                  {/* Copy Document ID Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-bold flex items-center gap-1.5 h-10 bg-card border-border/80 text-foreground hover:bg-accent/20"
+                    onClick={() => handleCopyText(selectedNote.id, 'docId')}
+                  >
+                    {copiedType === 'docId' ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    Copy Document ID
+                  </Button>
+                </div>
+              </div>
+
+              {/* Admin Actions Section (Demo Only) */}
+              <div className="space-y-2.5 pt-4 border-t border-border/60">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5" /> Administrative Actions (Demo)
+                  </h4>
+                  <span className="text-[9px] text-muted-foreground/80 italic font-medium">
+                    Demo Action — No database changes will occur.
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-xs font-bold border-emerald-500/35 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 h-10 w-full"
+                    onClick={() => handleTriggerAction('verify')}
+                  >
+                    Verify Document
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-xs font-bold border-orange-500/35 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 h-10 w-full"
+                    onClick={() => handleTriggerAction('reject')}
+                  >
+                    Reject Document
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white h-10 w-full"
+                    onClick={() => handleTriggerAction('delete')}
+                  >
+                    Delete Document
+                  </Button>
+                </div>
+              </div>
+
             </div>
 
-            <DialogFooter>
-              <div className="flex items-center justify-between w-full mt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10 text-xs flex gap-1.5"
-                  onClick={() => handleDelete(selectedNote.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete File
-                </Button>
-                <div className="flex items-center gap-2">
-                  {selectedNote.status !== 'Flagged' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-amber-600 border-amber-600/35 hover:bg-amber-500/10 text-xs flex gap-1 items-center"
-                      onClick={() => handleFlag(selectedNote.id)}
-                    >
-                      <AlertTriangle className="h-3.5 w-3.5" /> Flag
-                    </Button>
-                  )}
-                  {selectedNote.status !== 'Approved' && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex gap-1 items-center"
-                      onClick={() => handleApprove(selectedNote.id)}
-                    >
-                      <Check className="h-3.5 w-3.5" /> Approve
-                    </Button>
-                  )}
-                </div>
-              </div>
+            {/* Sticky Action Footer Section */}
+            <DialogFooter className="mt-4 border-t border-border/60 pt-4 shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setIsDetailOpen(false)} className="w-full sm:w-auto">
+                Close Panel
+              </Button>
             </DialogFooter>
-          </>
+          </div>
         )}
       </Dialog>
+
+      {/* Confirmation Dialog Sub-Modal */}
+      <Dialog isOpen={confirmAction !== null} onClose={() => setConfirmAction(null)}>
+        {confirmAction && (
+          <div className="space-y-4">
+            <DialogHeader className="text-left">
+              <div className="flex items-center gap-2 text-orange-500 mb-1">
+                <AlertTriangle className="h-5 w-5" />
+                <DialogTitle className="text-lg font-bold">Confirm Administrative Action</DialogTitle>
+              </div>
+              <DialogDescription className="text-sm mt-1.5 text-muted-foreground leading-relaxed">
+                {confirmAction.description}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="bg-orange-500/10 border border-orange-500/25 rounded-xl p-3 text-[11px] text-orange-700 dark:text-orange-400">
+              <span className="font-bold">Demo Notice:</span> No database writes or metadata updates will be dispatched to Firestore.
+            </div>
+            
+            <DialogFooter className="mt-4">
+              <Button variant="ghost" size="sm" onClick={() => setConfirmAction(null)}>
+                Cancel
+              </Button>
+              <Button 
+                size="sm" 
+                variant={confirmAction.type === 'delete' ? 'destructive' : 'default'} 
+                onClick={handleConfirmAction}
+                className={confirmAction.type === 'verify' ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0' : confirmAction.type === 'reject' ? 'bg-orange-500 hover:bg-orange-600 text-white border-0' : ''}
+              >
+                Confirm
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Premium Toast/Snackbar Notification */}
+      {toast.message && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-foreground text-background dark:bg-card dark:text-foreground px-4 py-3.5 rounded-xl shadow-2xl border border-border/80 animate-fade-in max-w-sm">
+          <Sparkles className="h-4 w-4 shrink-0 text-primary animate-pulse" />
+          <span className="text-xs font-bold">{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 };

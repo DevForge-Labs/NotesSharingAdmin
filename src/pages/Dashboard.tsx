@@ -1,376 +1,718 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
-import { Dialog, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import {
-  FileText,
-  Users as UsersIcon,
-  TrendingUp,
-  AlertCircle,
-  FileCode,
-  GraduationCap,
-  Layers,
-  ArrowUpRight,
-  Clock,
-  CheckCircle,
-  ArrowRight,
-  Download,
-  PlusCircle,
+import { 
+  Users as UsersIcon, 
   Upload,
-  Check,
-  X
+  FileText,
+  Layers,
+  GraduationCap,
+  FileCode,
+  Youtube,
+  ArrowRight, 
+  RefreshCw, 
+  AlertTriangle,
+  Sparkles,
+  Eye,
+  ThumbsUp,
+  Bookmark,
+  CheckCircle,
+  XCircle,
+  Download,
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-interface PendingItem {
+interface NoteItem {
   id: string;
-  title: string;
-  type: 'Note' | 'Assignment' | 'PYQ' | 'Cheatsheet';
-  subject: string;
-  author: string;
-  date: string;
+  documentId?: string;
+  title?: string;
+  subject?: string;
+  displaySubject?: string;
+  documentType?: string;
+  type?: string;
+  uploaderName?: string;
+  uploadedAt?: any;
+  uploadTimestamp?: any;
+  downloads?: number;
+  downloadsCount?: number;
+  viewsCount?: number;
+  likesCount?: number;
+  upvotes?: number;
+  bookmarks?: any;
+  fileSize?: number;
+  semester?: string;
+  branch?: string;
+  isVerified?: boolean;
 }
 
-interface UploadedItem {
-  id: string;
-  title: string;
-  type: 'Note' | 'Assignment' | 'PYQ' | 'Cheatsheet';
-  author: string;
-  date: string;
-  status: 'Approved' | 'Flagged' | 'Pending';
+interface DashboardStats {
+  totalUsers: number;
+  totalNotes: number;
+  totalDownloads: number;
+  totalViews: number;
+  totalLikes: number;
+  totalBookmarks: number;
+  notesCount: number;
+  assignmentsCount: number;
+  pyqsCount: number;
+  cheatsheetsCount: number;
+  verifiedCount: number;
+  unverifiedCount: number;
 }
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentUploads, setRecentUploads] = useState<NoteItem[]>([]);
+  const [mostDownloaded, setMostDownloaded] = useState<NoteItem[]>([]);
+  const [mostViewed, setMostViewed] = useState<NoteItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Metrics Data (6 Cards)
-  const stats = [
-    {
-      title: 'Total Notes',
-      value: '1,421',
-      change: '+12.4%',
-      trendingUp: true,
-      description: 'verified student guides',
-      icon: <FileText className="h-5 w-5 text-indigo-500" />,
-      path: '/notes'
-    },
-    {
-      title: 'Total Assignments',
-      value: '592',
-      change: '+8.2%',
-      trendingUp: true,
-      description: 'tutor sheets & problems',
-      icon: <GraduationCap className="h-5 w-5 text-emerald-500" />,
-      path: '/assignments'
-    },
-    {
-      title: 'Total PYQs',
-      value: '630',
-      change: '+15.1%',
-      trendingUp: true,
-      description: 'previous year papers',
-      icon: <Layers className="h-5 w-5 text-amber-500" />,
-      path: '/pyqs'
-    },
-    {
-      title: 'Total Cheatsheets',
-      value: '202',
-      change: '+24.6%',
-      trendingUp: true,
-      description: 'quick reference booklets',
-      icon: <FileCode className="h-5 w-5 text-blue-500" />,
-      path: '/cheatsheets'
-    },
-    {
-      title: 'Total Users',
-      value: '12,408',
-      change: '+18.3%',
-      trendingUp: true,
-      description: 'registered students & staff',
-      icon: <UsersIcon className="h-5 w-5 text-violet-500" />,
-      path: '/users'
-    },
-    {
-      title: 'Total Downloads',
-      value: '48,291',
-      change: '+31.4%',
-      trendingUp: true,
-      description: 'successful file deliveries',
-      icon: <Download className="h-5 w-5 text-rose-500" />,
-      path: '/notes'
-    },
-  ];
+  const fetchAndAggregateStats = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. Fetch Users collection (once)
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const totalUsersCount = usersSnapshot.size;
 
-  // Mock State for Dynamic List Changes
-  const [pendingItems, setPendingItems] = useState<PendingItem[]>([
-    {
-      id: 'N001',
-      title: 'Database Management Systems Complete Lecture Notes',
-      type: 'Note',
-      subject: 'Computer Science',
-      author: 'Aravind Swamy',
-      date: 'Today, 11:20 AM',
-    },
-    {
-      id: 'A003',
-      title: 'Pipelining & Cache Mapping exercises',
-      type: 'Assignment',
-      subject: 'Computer Architecture',
-      author: 'Dr. Sunil K.',
-      date: 'Today, 09:15 AM',
-    },
-    {
-      id: 'P013',
-      title: 'Advanced Operating Systems theory paper',
-      type: 'PYQ',
-      subject: 'Computer Science',
-      author: 'M.Tech CSE Group',
-      date: 'Yesterday, 04:40 PM',
-    },
-  ]);
+      // 2. Fetch Notes collection (once)
+      const notesSnapshot = await getDocs(collection(db, 'notes'));
+      const notesList: NoteItem[] = [];
 
-  const [recentUploads, setRecentUploads] = useState<UploadedItem[]>([
-    {
-      id: 'C201',
-      title: 'React Hooks API quick-reference cheatsheet',
-      type: 'Cheatsheet',
-      author: 'Vikash Sen',
-      date: '10 mins ago',
-      status: 'Approved',
-    },
-    {
-      id: 'N002',
-      title: 'Machine Learning algorithms guide',
-      type: 'Note',
-      author: 'Neha Deshmukh',
-      date: '1 hour ago',
-      status: 'Approved',
-    },
-    {
-      id: 'P011',
-      title: 'Computer Organization & Assembly Language Paper',
-      type: 'PYQ',
-      author: 'Prof. Amrita Sen',
-      date: '2 hours ago',
-      status: 'Approved',
-    },
-    {
-      id: 'A004',
-      title: 'Fiscal Policy & Inflation calculations sheet',
-      type: 'Assignment',
-      author: 'Prof. Sarah Vance',
-      date: '5 hours ago',
-      status: 'Approved',
-    },
-  ]);
+      let downloadsSum = 0;
+      let viewsSum = 0;
+      let likesSum = 0;
+      let bookmarksSum = 0;
 
-  // Top Downloaded Resources Mock Data
-  const topDownloads = [
-    {
-      title: 'Data Structures & Algorithms Exam Cheatsheet',
-      type: 'Cheatsheet',
-      downloads: '1,280',
-      subject: 'Computer Science',
-      color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-    },
-    {
-      title: 'Computer Networks Endsem 2024 Question Paper',
-      type: 'PYQ',
-      downloads: '954',
-      subject: 'Information Technology',
-      color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-    },
-    {
-      title: 'Thermodynamics Formulas & Derivations guide',
-      type: 'Note',
-      downloads: '840',
-      subject: 'Mechanical Eng.',
-      color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
-    },
-    {
-      title: 'Discrete Mathematics Graph Theory Assignment',
-      type: 'Assignment',
-      downloads: '712',
-      subject: 'Mathematics',
-      color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-    },
-  ];
+      let notesCount = 0;
+      let assignmentsCount = 0;
+      let pyqsCount = 0;
+      let cheatsheetsCount = 0;
 
-  // Quick Action Modal States
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [uploadType, setUploadType] = useState<'Note' | 'Assignment' | 'PYQ' | 'Cheatsheet'>('Note');
-  const [newTitle, setNewTitle] = useState('');
-  const [newSubject, setNewSubject] = useState('');
-  const [newAuthor, setNewAuthor] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+      let verifiedCount = 0;
+      let unverifiedCount = 0;
 
-  const handleOpenUpload = (type: 'Note' | 'Assignment' | 'PYQ' | 'Cheatsheet') => {
-    setUploadType(type);
-    setNewTitle('');
-    setNewSubject('');
-    setNewAuthor('Admin Moderator');
-    setIsUploadOpen(true);
-  };
+      notesSnapshot.forEach((doc) => {
+        const data = doc.data() as Omit<NoteItem, 'id'>;
+        const id = doc.id;
+        const note: NoteItem = { ...data, id };
+        notesList.push(note);
 
-  const handleMockUpload = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
+        // Sum downloads dynamically using downloadsCount or downloads fields
+        downloadsSum += Number(data.downloadsCount !== undefined ? data.downloadsCount : (data.downloads || 0));
+        viewsSum += Number(data.viewsCount || 0);
+        likesSum += Number(data.upvotes !== undefined ? data.upvotes : (data.likesCount || 0));
 
-    setTimeout(() => {
-      const generatedId = `${uploadType[0]}${Math.floor(100 + Math.random() * 900)}`;
-      
-      // Add to recent uploads list
-      const newItem: UploadedItem = {
-        id: generatedId,
-        title: newTitle || `Untitled ${uploadType}`,
-        type: uploadType,
-        author: newAuthor || 'Admin',
-        date: 'Just now',
-        status: 'Approved',
+        // Sum bookmarks dynamically checking if array or numeric count
+        const b = data.bookmarks;
+        if (Array.isArray(b)) {
+          bookmarksSum += b.length;
+        } else {
+          bookmarksSum += Number(b || 0);
+        }
+
+        // Count category breakdowns using documentType or type
+        const rawType = (data.documentType || data.type || '').toString().toLowerCase().trim();
+        if (rawType.includes('note')) {
+          notesCount++;
+        } else if (rawType.includes('assign')) {
+          assignmentsCount++;
+        } else if (rawType.includes('pyq') || rawType.includes('exam') || rawType.includes('paper')) {
+          pyqsCount++;
+        } else if (rawType.includes('cheat') || rawType.includes('formula')) {
+          cheatsheetsCount++;
+        } else {
+          if (rawType === 'notes' || rawType === 'note') notesCount++;
+          else if (rawType === 'assignments' || rawType === 'assignment') assignmentsCount++;
+          else if (rawType === 'pyqs' || rawType === 'pyq') pyqsCount++;
+          else if (rawType === 'cheat sheets' || rawType === 'cheat sheet' || rawType === 'cheatsheet') cheatsheetsCount++;
+        }
+
+        // Count verification status using isVerified
+        if (data.isVerified === true) {
+          verifiedCount++;
+        } else {
+          unverifiedCount++;
+        }
+      });
+
+      // Date parsing helper to safely format Firestore Timestamps to ms for client-side sorting
+      const getTimestampMs = (val: any): number => {
+        if (!val) return 0;
+        if (typeof val.toDate === 'function') return val.toDate().getTime();
+        if (typeof val.seconds === 'number') return val.seconds * 1000;
+        const parsed = new Date(val).getTime();
+        return isNaN(parsed) ? 0 : parsed;
       };
 
-      setRecentUploads((prev) => [newItem, ...prev]);
-      setIsSaving(false);
-      setIsUploadOpen(false);
-    }, 600);
-  };
+      // Sort by uploadedAt/uploadTimestamp descending for Recent Uploads
+      const sortedByDate = [...notesList].sort((a, b) => {
+        const timeA = getTimestampMs(a.uploadedAt || a.uploadTimestamp);
+        const timeB = getTimestampMs(b.uploadedAt || b.uploadTimestamp);
+        return timeB - timeA;
+      });
+      setRecentUploads(sortedByDate.slice(0, 5));
 
-  const handleApprovePending = (id: string) => {
-    const itemToApprove = pendingItems.find((item) => item.id === id);
-    if (itemToApprove) {
-      // Add to recent uploads list
-      const newItem: UploadedItem = {
-        id: itemToApprove.id,
-        title: itemToApprove.title,
-        type: itemToApprove.type,
-        author: itemToApprove.author,
-        date: 'Just now',
-        status: 'Approved',
-      };
-      setRecentUploads((prev) => [newItem, ...prev]);
+      // Sort by downloadsCount descending for Most Downloaded
+      const sortedByDownloads = [...notesList].sort((a, b) => {
+        const dlA = Number(a.downloadsCount !== undefined ? a.downloadsCount : (a.downloads || 0));
+        const dlB = Number(b.downloadsCount !== undefined ? b.downloadsCount : (b.downloads || 0));
+        return dlB - dlA;
+      });
+      setMostDownloaded(sortedByDownloads.slice(0, 5));
+
+      // Sort by viewsCount descending for Most Viewed
+      const sortedByViews = [...notesList].sort((a, b) => {
+        const vA = Number(a.viewsCount || 0);
+        const vB = Number(b.viewsCount || 0);
+        return vB - vA;
+      });
+      setMostViewed(sortedByViews.slice(0, 5));
+
+      setStats({
+        totalUsers: totalUsersCount,
+        totalNotes: notesList.length,
+        totalDownloads: downloadsSum,
+        totalViews: viewsSum,
+        totalLikes: likesSum,
+        totalBookmarks: bookmarksSum,
+        notesCount,
+        assignmentsCount,
+        pyqsCount,
+        cheatsheetsCount,
+        verifiedCount,
+        unverifiedCount
+      });
+    } catch (err: any) {
+      console.error("Error fetching and aggregating database stats:", err);
+      setError("Failed to load dashboard metrics from Firestore notes and users collections.");
+    } finally {
+      setLoading(false);
     }
-    // Remove from pending
-    setPendingItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleRejectPending = (id: string) => {
-    // Remove from pending
-    setPendingItems((prev) => prev.filter((item) => item.id !== id));
+  useEffect(() => {
+    fetchAndAggregateStats();
+  }, []);
+
+  const getPercentage = (count: number) => {
+    if (!stats || stats.totalNotes === 0) return '0';
+    return ((count / stats.totalNotes) * 100).toFixed(1);
   };
+
+  const getVerifiedPercentage = () => {
+    if (!stats || stats.totalNotes === 0) return '0';
+    return ((stats.verifiedCount / stats.totalNotes) * 100).toFixed(1);
+  };
+
+  const renderDateField = (val: any) => {
+    if (!val) return <span className="text-muted-foreground/50 italic text-xs">—</span>;
+    try {
+      if (typeof val.toDate === 'function') {
+        const date = val.toDate();
+        return <span>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>;
+      }
+      if (typeof val.seconds === 'number') {
+        const date = new Date(val.seconds * 1000);
+        return <span>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>;
+      }
+      const date = new Date(val);
+      if (!isNaN(date.getTime())) {
+        return <span>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>;
+      }
+    } catch (e) {
+      console.error("Error formatting date:", e);
+    }
+    return <span className="text-muted-foreground/50 italic text-xs">—</span>;
+  };
+
+  // 1. Loading State
+  if (loading) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center text-foreground p-6">
+        <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-sm text-muted-foreground font-medium animate-pulse">
+          Aggregating notes telemetry and user profiles from Firestore...
+        </p>
+      </div>
+    );
+  }
+
+  // 2. Error State
+  if (error) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="h-12 w-12 bg-destructive/10 text-destructive rounded-2xl flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6" />
+        </div>
+        <h3 className="text-lg font-bold tracking-tight">Unable to load dashboard data</h3>
+        <p className="text-sm text-muted-foreground max-w-md mt-1.5">{error}</p>
+        <Button variant="outline" onClick={fetchAndAggregateStats} className="mt-6 flex items-center gap-2">
+          <RefreshCw className="h-4 w-4" /> Retry
+        </Button>
+      </div>
+    );
+  }
+
+  // 3. Empty State (Zero Users and Notes)
+  if (!loading && stats && stats.totalUsers === 0 && stats.totalNotes === 0) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="text-4xl mb-4">📂</div>
+        <h3 className="text-lg font-bold">No platform data found</h3>
+        <p className="text-sm text-muted-foreground max-w-sm mt-1.5">
+          The Firestore database seems to have uninitialized notes and users collections.
+        </p>
+        <Button variant="outline" onClick={fetchAndAggregateStats} className="mt-6 flex items-center gap-2">
+          <RefreshCw className="h-4 w-4" /> Reload
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Banner specific to NotesSharingAPP */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-indigo-500/10 via-violet-500/5 to-transparent p-6 rounded-2xl border border-indigo-500/10 shadow-premium">
+    <div className="space-y-8 pb-10 animate-fade-in select-text">
+      {/* Welcome Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-6 rounded-2xl border border-primary/10 shadow-premium">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight font-heading">
-            NotesSharingAPP Admin Portal
+          <h2 className="text-2xl font-bold tracking-tight font-heading flex items-center gap-2">
+            Welcome to NotesSharing Admin <Sparkles className="h-5 w-5 text-primary animate-pulse" />
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            App metrics, academic resource archives, and student directory telemetry.
+            Console dashboard for verifying academic resources, content statistics, and directory audit records.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate('/settings')}>
-            Console Settings
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={fetchAndAggregateStats} className="flex items-center gap-1.5 bg-card">
+            <RefreshCw className="h-3.5 w-3.5" /> Reload Stats
           </Button>
-          <Button size="sm" onClick={() => navigate('/notes')} className="flex items-center gap-1.5">
-            Manage Notes <ArrowRight className="h-3.5 w-3.5" />
+          <Button size="sm" onClick={() => navigate('/users')} className="flex items-center gap-1.5 bg-primary hover:bg-primary/95 text-white">
+            Users Directory <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
-      {/* Metrics Row (6 Cards Layout) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        {stats.map((stat, i) => (
-          <Card
-            key={i}
-            onClick={() => navigate(stat.path)}
-            className="hover:shadow-premium-hover hover:border-primary/20 transition-all duration-300 group border-border cursor-pointer"
+      {/* KPI Section */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
+          Platform Overview
+        </h3>
+        
+        {/* KPI Grid (6 cards) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          
+          {/* Total Registered Users */}
+          <Card 
+            onClick={() => navigate('/users')}
+            className="hover:shadow-premium-hover hover:border-primary/20 transition-all duration-300 group border-border cursor-pointer bg-gradient-to-br from-card to-accent/5 flex flex-col justify-between"
           >
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-4">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                {stat.title}
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Total Users
               </span>
-              <div className="p-1.5 bg-accent/40 rounded-lg group-hover:scale-105 duration-200">
-                {stat.icon}
+              <div className="p-2.5 bg-primary/10 text-primary rounded-xl group-hover:scale-105 transition-transform duration-200">
+                <UsersIcon className="h-5 w-5" />
               </div>
             </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-extrabold tracking-tight font-heading">
-                  {stat.value}
-                </span>
-                <span className="text-[9px] font-bold text-emerald-500">
-                  {stat.change}
-                </span>
+            <CardContent className="p-5 pt-0">
+              <div className="text-3xl font-extrabold tracking-tight font-heading">
+                {stats?.totalUsers?.toLocaleString() ?? '0'}
               </div>
-              <p className="text-[9px] text-muted-foreground mt-1 truncate">
-                {stat.description}
+              <p className="text-[10px] text-muted-foreground mt-1.5">
+                Registered student profiles in database.
               </p>
             </CardContent>
           </Card>
-        ))}
+
+          {/* Total Notes/Documents */}
+          <Card 
+            className="border-border bg-gradient-to-br from-card to-accent/5 hover:border-indigo-500/10 hover:shadow-premium-hover transition-all duration-300 flex flex-col justify-between"
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Total Notes/Documents
+              </span>
+              <div className="p-2.5 bg-indigo-500/10 text-indigo-500 rounded-xl">
+                <FileText className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-indigo-500">
+                {stats?.totalNotes?.toLocaleString() ?? '0'}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1.5">
+                Academic files and resources in catalog.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Total Downloads */}
+          <Card 
+            className="border-border bg-gradient-to-br from-card to-accent/5 hover:border-emerald-500/10 hover:shadow-premium-hover transition-all duration-300 flex flex-col justify-between"
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Total Downloads
+              </span>
+              <div className="p-2.5 bg-emerald-500/10 text-emerald-500 rounded-xl">
+                <Download className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-emerald-500">
+                {stats?.totalDownloads?.toLocaleString() ?? '0'}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1.5">
+                Total times notes downloaded.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Total Views */}
+          <Card 
+            className="border-border bg-gradient-to-br from-card to-accent/5 hover:border-blue-500/10 hover:shadow-premium-hover transition-all duration-300 flex flex-col justify-between"
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Total Views
+              </span>
+              <div className="p-2.5 bg-blue-500/10 text-blue-500 rounded-xl">
+                <Eye className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-blue-500">
+                {stats?.totalViews?.toLocaleString() ?? '0'}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1.5">
+                Accumulated page views across platform.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Total Likes */}
+          <Card 
+            className="border-border bg-gradient-to-br from-card to-accent/5 hover:border-rose-500/10 hover:shadow-premium-hover transition-all duration-300 flex flex-col justify-between"
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Total Likes
+              </span>
+              <div className="p-2.5 bg-rose-500/10 text-rose-500 rounded-xl">
+                <ThumbsUp className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-rose-500">
+                {stats?.totalLikes?.toLocaleString() ?? '0'}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1.5">
+                Upvotes given by verified students.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Total Bookmarks */}
+          <Card 
+            className="border-border bg-gradient-to-br from-card to-accent/5 hover:border-amber-500/10 hover:shadow-premium-hover transition-all duration-300 flex flex-col justify-between"
+          >
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Total Bookmarks
+              </span>
+              <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl">
+                <Bookmark className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 pt-0">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-amber-500">
+                {stats?.totalBookmarks?.toLocaleString() ?? '0'}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1.5">
+                Saved resources for revision.
+              </p>
+            </CardContent>
+          </Card>
+
+        </div>
       </div>
 
-      {/* Core Split Screen Layout */}
+      {/* Upload Breakdown & Verification Status Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column (2/3 width) - Pending Review & Recent Uploads */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Pending Content Review */}
-          <Card className="border-border">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <div>
-                <CardTitle className="text-base font-bold tracking-tight">Pending Content Review</CardTitle>
-                <CardDescription>Academic files awaiting moderator verification</CardDescription>
+        {/* Upload Breakdown Grid */}
+        <div className="lg:col-span-2 space-y-4">
+          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
+            Upload Breakdown
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            
+            {/* Notes Breakdown */}
+            <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Notes
+                </span>
+                <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg">
+                  <FileText className="h-4 w-4" />
+                </div>
               </div>
-              <Badge variant="warning">{pendingItems.length} awaiting</Badge>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {pendingItems.length === 0 ? (
-                <div className="py-8 text-center flex flex-col items-center justify-center">
-                  <CheckCircle className="h-8 w-8 text-emerald-500 mb-2" />
-                  <p className="text-sm font-semibold">All caught up!</p>
-                  <p className="text-xs text-muted-foreground">No resources are currently pending review.</p>
+              <div className="mt-4">
+                <div className="text-3xl font-extrabold tracking-tight font-heading text-indigo-500">
+                  {getPercentage(stats?.notesCount ?? 0)}%
+                </div>
+                <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
+                  <div 
+                    className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${getPercentage(stats?.notesCount ?? 0)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+                  {stats?.notesCount?.toLocaleString() ?? '0'} documents
+                </p>
+              </div>
+            </Card>
+
+            {/* Assignments Breakdown */}
+            <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Assignments
+                </span>
+                <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
+                  <GraduationCap className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="text-3xl font-extrabold tracking-tight font-heading text-emerald-500">
+                  {getPercentage(stats?.assignmentsCount ?? 0)}%
+                </div>
+                <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
+                  <div 
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${getPercentage(stats?.assignmentsCount ?? 0)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+                  {stats?.assignmentsCount?.toLocaleString() ?? '0'} documents
+                </p>
+              </div>
+            </Card>
+
+            {/* PYQs Breakdown */}
+            <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  PYQs
+                </span>
+                <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
+                  <Layers className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="text-3xl font-extrabold tracking-tight font-heading text-amber-500">
+                  {getPercentage(stats?.pyqsCount ?? 0)}%
+                </div>
+                <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
+                  <div 
+                    className="bg-amber-500 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${getPercentage(stats?.pyqsCount ?? 0)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+                  {stats?.pyqsCount?.toLocaleString() ?? '0'} documents
+                </p>
+              </div>
+            </Card>
+
+            {/* Cheatsheets Breakdown */}
+            <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Cheat Sheets
+                </span>
+                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
+                  <FileCode className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="text-3xl font-extrabold tracking-tight font-heading text-blue-500">
+                  {getPercentage(stats?.cheatsheetsCount ?? 0)}%
+                </div>
+                <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
+                  <div 
+                    className="bg-blue-500 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${getPercentage(stats?.cheatsheetsCount ?? 0)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+                  {stats?.cheatsheetsCount?.toLocaleString() ?? '0'} documents
+                </p>
+              </div>
+            </Card>
+
+          </div>
+        </div>
+
+        {/* Verification Status Card */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
+            Verification Telemetry
+          </h3>
+          <Card className="border-border bg-gradient-to-br from-card to-accent/5 p-5 hover:shadow-premium-hover transition-all duration-300 flex flex-col justify-between h-full min-h-[300px]">
+            <div>
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Verification Status
+                </span>
+                <ShieldCheck className="h-5 w-5 text-emerald-500 animate-pulse" />
+              </div>
+              
+              <div className="mt-4 text-center">
+                <div className="text-4xl font-extrabold tracking-tight font-heading text-emerald-500">
+                  {getVerifiedPercentage()}%
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
+                  Percentage of catalog contributions verified by moderation audit.
+                </p>
+              </div>
+
+              <div className="w-full bg-accent/30 h-2 rounded-full overflow-hidden mt-6 flex">
+                <div 
+                  className="bg-emerald-500 h-full transition-all duration-500" 
+                  style={{ width: `${getVerifiedPercentage()}%` }}
+                  title="Verified"
+                />
+                <div 
+                  className="bg-amber-500 h-full transition-all duration-500" 
+                  style={{ width: `${100 - Number(getVerifiedPercentage())}%` }}
+                  title="Unverified"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-border/40">
+              <div className="text-center">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider flex items-center justify-center gap-1">
+                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> Verified
+                </span>
+                <span className="text-xl font-bold text-emerald-500 mt-1 block">
+                  {stats?.verifiedCount?.toLocaleString() ?? '0'}
+                </span>
+              </div>
+              <div className="text-center">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider flex items-center justify-center gap-1">
+                  <Clock className="h-3.5 w-3.5 text-amber-500" /> Pending
+                </span>
+                <span className="text-xl font-bold text-amber-500 mt-1 block">
+                  {stats?.unverifiedCount?.toLocaleString() ?? '0'}
+                </span>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+      </div>
+
+      {/* Recent Uploads Table */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Clock className="h-4 w-4 text-muted-foreground" /> Recent Uploads
+        </h3>
+        
+        <Card className="border-border overflow-hidden shadow-premium">
+          <CardContent className="p-0">
+            {recentUploads.length === 0 ? (
+              <div className="p-10 text-center text-sm text-muted-foreground">
+                No recent uploads found in the catalog.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      <th className="p-4 w-[40%]">Title</th>
+                      <th className="p-4">Subject</th>
+                      <th className="p-4">Type</th>
+                      <th className="p-4">Uploader</th>
+                      <th className="p-4">Uploaded Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-sm">
+                    {recentUploads.map((note) => (
+                      <tr key={note.id} className="hover:bg-accent/10 transition-colors duration-150">
+                        <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={note.title}>
+                          {note.title || <span className="text-muted-foreground/60 italic font-normal">Untitled Document</span>}
+                        </td>
+                        <td className="p-4 text-muted-foreground whitespace-nowrap">
+                          {note.displaySubject || note.subject || <span className="text-muted-foreground/60 italic">—</span>}
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          {note.documentType || note.type ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-secondary text-secondary-foreground border border-border capitalize">
+                              {note.documentType || note.type}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/60 italic">—</span>
+                          )}
+                        </td>
+                        <td className="p-4 whitespace-nowrap font-medium text-foreground/80">
+                          {note.uploaderName || <span className="text-muted-foreground/60 italic font-normal">Anonymous</span>}
+                        </td>
+                        <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">
+                          {renderDateField(note.uploadedAt || note.uploadTimestamp)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top Performing Content Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* Most Downloaded Notes */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Download className="h-4 w-4 text-emerald-500" /> Most Downloaded Content
+          </h3>
+          
+          <Card className="border-border overflow-hidden shadow-premium">
+            <CardContent className="p-0">
+              {mostDownloaded.length === 0 ? (
+                <div className="p-10 text-center text-sm text-muted-foreground">
+                  No downloads recorded yet.
                 </div>
               ) : (
                 <div className="divide-y divide-border">
-                  {pendingItems.map((item) => (
-                    <div key={item.id} className="py-3.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
-                      <div className="min-w-0">
+                  {mostDownloaded.map((note, index) => (
+                    <div key={note.id} className="flex items-center justify-between p-4 hover:bg-accent/10 transition-colors">
+                      <div className="min-w-0 flex-1 pr-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm truncate text-foreground/90">{item.title}</span>
-                          <Badge variant="outline" className="text-[9px] font-mono py-0">{item.id}</Badge>
-                          <Badge variant="secondary" className="text-[9px] py-0">{item.type}</Badge>
+                          <span className="text-xs font-extrabold text-muted-foreground w-4">
+                            {index + 1}
+                          </span>
+                          <span className="font-semibold text-sm text-foreground truncate block" title={note.title}>
+                            {note.title || 'Untitled Document'}
+                          </span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Uploaded by <span className="text-foreground/80 font-medium">{item.author}</span> • {item.subject} • <span className="text-[10px]">{item.date}</span>
-                        </p>
+                        <span className="text-[10px] text-muted-foreground block pl-6 mt-0.5">
+                          {note.displaySubject || note.subject || 'No Subject'} • {note.documentType || note.type || 'Document'}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/20"
-                          onClick={() => handleApprovePending(item.id)}
-                          title="Approve Resource"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                          onClick={() => handleRejectPending(item.id)}
-                          title="Reject Resource"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                      <div className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-500 px-2.5 py-1 rounded-lg text-xs font-bold shrink-0">
+                        <Download className="h-3.5 w-3.5" />
+                        {(note.downloadsCount !== undefined ? note.downloadsCount : (note.downloads || 0)).toLocaleString()}
                       </div>
                     </div>
                   ))}
@@ -378,215 +720,50 @@ export const Dashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
-
-          {/* Recent Uploads */}
-          <Card className="border-border">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <div>
-                <CardTitle className="text-base font-bold tracking-tight">Recent Uploads</CardTitle>
-                <CardDescription>Live log of documents submitted and auto-published</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/notes')} className="text-xs flex gap-1 items-center">
-                View All Files <ArrowRight className="h-3 w-3" />
-              </Button>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="divide-y divide-border">
-                {recentUploads.map((act) => (
-                  <div key={act.id} className="py-3 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center shrink-0 text-muted-foreground mt-0.5">
-                        {act.type === 'Note' && <FileText className="h-4 w-4" />}
-                        {act.type === 'Assignment' && <GraduationCap className="h-4 w-4" />}
-                        {act.type === 'PYQ' && <Layers className="h-4 w-4" />}
-                        {act.type === 'Cheatsheet' && <FileCode className="h-4 w-4" />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground">
-                          <span className="font-semibold text-foreground/90">{act.author}</span>{' '}
-                          <span className="text-muted-foreground">uploaded a {act.type}</span>
-                        </p>
-                        <p className="text-xs text-primary font-medium truncate mt-0.5">
-                          {act.title}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <Badge variant="success" className="text-[9px] py-0">Published</Badge>
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {act.date}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
         </div>
 
-        {/* Right Column (1/3 width) - Quick Actions & Top Downloaded */}
-        <div className="space-y-6">
+        {/* Most Viewed Notes */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Eye className="h-4 w-4 text-blue-500" /> Most Viewed Content
+          </h3>
           
-          {/* Quick Actions */}
-          <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-base font-bold tracking-tight">Quick Actions</CardTitle>
-              <CardDescription>Moderator shortcuts to publish documents directly</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-2 pt-0">
-              <Button
-                variant="outline"
-                onClick={() => handleOpenUpload('Note')}
-                className="flex flex-col items-center justify-center h-20 rounded-xl gap-2 hover:border-primary/30 transition-all text-center p-2 text-xs font-semibold"
-              >
-                <FileText className="h-5 w-5 text-indigo-500" />
-                Upload Note
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleOpenUpload('Assignment')}
-                className="flex flex-col items-center justify-center h-20 rounded-xl gap-2 hover:border-primary/30 transition-all text-center p-2 text-xs font-semibold"
-              >
-                <GraduationCap className="h-5 w-5 text-emerald-500" />
-                Upload Assignment
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleOpenUpload('PYQ')}
-                className="flex flex-col items-center justify-center h-20 rounded-xl gap-2 hover:border-primary/30 transition-all text-center p-2 text-xs font-semibold"
-              >
-                <Layers className="h-5 w-5 text-amber-500" />
-                Upload PYQ
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleOpenUpload('Cheatsheet')}
-                className="flex flex-col items-center justify-center h-20 rounded-xl gap-2 hover:border-primary/30 transition-all text-center p-2 text-xs font-semibold"
-              >
-                <FileCode className="h-5 w-5 text-blue-500" />
-                Upload Cheatsheet
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Top Downloaded Resources */}
-          <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-base font-bold tracking-tight">Top Downloaded Resources</CardTitle>
-              <CardDescription>Highest student engagement files</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              {topDownloads.map((item, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between p-3 rounded-xl border border-border/60 hover:bg-accent/40 transition-all duration-200"
-                >
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 text-xs font-bold ${item.color}`}>
-                      {item.type[0]}
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-foreground/90 truncate leading-tight">{item.title}</h4>
-                      <p className="text-[10px] text-muted-foreground truncate mt-0.5">{item.subject}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5 shrink-0 pl-2">
-                    <span className="text-xs font-extrabold text-foreground/90">{item.downloads}</span>
-                    <span className="text-[8px] text-muted-foreground uppercase font-semibold">get requests</span>
-                  </div>
+          <Card className="border-border overflow-hidden shadow-premium">
+            <CardContent className="p-0">
+              {mostViewed.length === 0 ? (
+                <div className="p-10 text-center text-sm text-muted-foreground">
+                  No views recorded yet.
                 </div>
-              ))}
+              ) : (
+                <div className="divide-y divide-border">
+                  {mostViewed.map((note, index) => (
+                    <div key={note.id} className="flex items-center justify-between p-4 hover:bg-accent/10 transition-colors">
+                      <div className="min-w-0 flex-1 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-extrabold text-muted-foreground w-4">
+                            {index + 1}
+                          </span>
+                          <span className="font-semibold text-sm text-foreground truncate block" title={note.title}>
+                            {note.title || 'Untitled Document'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground block pl-6 mt-0.5">
+                          {note.displaySubject || note.subject || 'No Subject'} • {note.documentType || note.type || 'Document'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-blue-500/10 text-blue-500 px-2.5 py-1 rounded-lg text-xs font-bold shrink-0">
+                        <Eye className="h-3.5 w-3.5" />
+                        {(note.viewsCount || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
-
         </div>
 
       </div>
-
-      {/* Quick Upload Action Dialog (Mock) */}
-      <Dialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)}>
-        <form onSubmit={handleMockUpload}>
-          <DialogHeader>
-            <div className="flex items-center gap-2 mb-1">
-              <Upload className="h-4 w-4 text-primary" />
-              <Badge variant="outline" className="text-xs font-semibold capitalize">Direct Publisher</Badge>
-            </div>
-            <DialogTitle className="text-lg font-bold">
-              Upload New {uploadType}
-            </DialogTitle>
-            <DialogDescription>
-              Submit an official resource. The document will be published and logged under your account.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3.5 my-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                Resource Name / Title
-              </label>
-              <Input
-                type="text"
-                placeholder={`e.g., ${uploadType === 'PYQ' ? 'Applied Physics Endsem 2025' : `Course lecture on ${uploadType} topic`}`}
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                  Subject Category
-                </label>
-                <Input
-                  type="text"
-                  placeholder="e.g., Computer Science"
-                  value={newSubject}
-                  onChange={(e) => setNewSubject(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                  Uploader Name
-                </label>
-                <Input
-                  type="text"
-                  value={newAuthor}
-                  onChange={(e) => setNewAuthor(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Mock file picker */}
-            <div className="border border-dashed border-border/80 rounded-xl p-6 text-center bg-accent/10 hover:bg-accent/20 cursor-pointer transition-all">
-              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <span className="text-xs font-semibold text-foreground/90 block">Select PDF or Document file</span>
-              <span className="text-[10px] text-muted-foreground mt-0.5 block">Max limit 25MB. Files are auto-scanned.</span>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" size="sm" type="button" onClick={() => setIsUploadOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" type="submit" disabled={isSaving} className="bg-primary hover:bg-primary/95 text-white flex gap-1.5 items-center">
-              {isSaving ? (
-                <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  Publish Resource <Check className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </Dialog>
     </div>
   );
 };
-
