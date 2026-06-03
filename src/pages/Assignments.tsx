@@ -1,85 +1,246 @@
-import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, GraduationCap, ClipboardList, Eye, PlusCircle, Check, Trash2 } from 'lucide-react';
+import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { 
+  Search, 
+  GraduationCap, 
+  Eye, 
+  Calendar,
+  Shield,
+  CheckCircle,
+  Clock,
+  Info,
+  RefreshCw,
+  FileText,
+  File,
+  Layers,
+  Copy,
+  ExternalLink,
+  Sparkles,
+  AlertTriangle
+} from 'lucide-react';
 
 interface AssignmentItem {
   id: string;
-  topic: string;
-  subject: string;
-  uploadedBy: string;
-  dueDate: string;
-  status: 'Published' | 'Draft' | 'Archived';
-  description: string;
+  documentId?: string;
+  title?: string;
+  subject?: string;
+  displaySubject?: string;
+  uploaderName?: string;
+  uploaderPhotoUrl?: string;
+  branch?: string;
+  semester?: string;
+  fileSize?: any;
+  downloadsCount?: number;
+  downloads?: number;
+  viewsCount?: number;
+  uploadedAt?: any;
+  uploadTimestamp?: any;
+  fileUrl?: string;
+  downloadUrl?: string;
+  thumbnailUrl?: string;
+  description?: string;
+  mimeType?: string;
+  fileExtension?: string;
+  previewAttachmentType?: string;
+  attachmentCount?: number;
+  sectionDisplay?: string;
+  storagePath?: string;
+  isVerified?: boolean;
+  documentType?: string;
+  type?: string;
 }
 
 export const Assignments: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [assignments, setAssignments] = useState<AssignmentItem[]>([
-    {
-      id: 'A001',
-      topic: 'Graph Theory & Network Flows Assignment 3',
-      subject: 'Discrete Mathematics',
-      uploadedBy: 'Dr. Sunil K. (IIT D)',
-      dueDate: '2026-06-10',
-      status: 'Published',
-      description: 'Advanced graph routing, shortest path algorithm proofs, maximum flow problems, and bipartite matching applications.',
-    },
-    {
-      id: 'A002',
-      topic: 'Neural Networks Backpropagation derivations',
-      subject: 'Machine Learning',
-      uploadedBy: 'Prof. Amrita Sen',
-      dueDate: '2026-06-15',
-      status: 'Published',
-      description: 'Mathematical derivation of weight update equations using gradient descent chain rule for multi-layered perceptrons.',
-    },
-    {
-      id: 'A003',
-      topic: 'Pipelining & Cache Mapping exercises',
-      subject: 'Computer Architecture',
-      uploadedBy: 'Dr. Sunil K. (IIT D)',
-      dueDate: '2026-06-05',
-      status: 'Draft',
-      description: 'Calculating structural hazards, branch penalties, cache block size formulas, and direct/associative mapping tables.',
-    },
-    {
-      id: 'A004',
-      topic: 'Fiscal Policy & Inflation calculations sheet',
-      subject: 'Macroeconomics',
-      uploadedBy: 'Prof. Sarah Vance',
-      dueDate: '2026-05-20',
-      status: 'Archived',
-      description: 'Analyzing aggregate demand shifts, multiplier effects, tax policy models, and CPI calculation methodologies.',
-    },
-  ]);
-
+  const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentItem | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
+  
+  // Search and Sort states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'Latest' | 'Downloads' | 'Views'>('Latest');
 
-  const filtered = assignments.filter((item) =>
-    item.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Toast feedback state
+  const [toast, setToast] = useState<{ message: string | null; type: 'success' | 'info' | 'error' }>({ message: null, type: 'success' });
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Delete this assignment sheet template?')) {
-      setAssignments((prev) => prev.filter((a) => a.id !== id));
-      setIsDetailOpen(false);
+  const fetchAssignments = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const querySnapshot = await getDocs(collection(db, 'assignments'));
+      
+      // Mandatory debug visibility print
+      console.log("Assignments snapshot size:", querySnapshot.size);
+      console.log("Assignments raw docs:", querySnapshot.docs);
+      console.log("Assignments raw data:", querySnapshot.docs.map(d => d.data()));
+
+      const fetched: AssignmentItem[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as AssignmentItem;
+        
+        // Exclude dummy or temp documents
+        if (!(data as any).temp && data.title) {
+          fetched.push({
+            ...data,
+            id: data.documentId || doc.id
+          });
+        }
+      });
+
+      console.log("Assignments mapped:", fetched);
+      setAssignments(fetched);
+    } catch (err: any) {
+      console.error("Error fetching assignments collection from Firestore:", err);
+      setError("Failed to fetch assignments directory from Firestore database.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleStatusChange = (id: string, nextStatus: 'Published' | 'Draft' | 'Archived') => {
-    setAssignments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: nextStatus } : a))
-    );
-    if (selectedAssignment && selectedAssignment.id === id) {
-      setSelectedAssignment((prev) => (prev ? { ...prev, status: nextStatus } : null));
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
+
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => prev.message === message ? { ...prev, message: null } : prev);
+    }, 3000);
+  };
+
+  const handleCopyText = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast("URL copied to clipboard!", "success");
+    }).catch(err => {
+      console.error("Failed to copy URL:", err);
+      showToast("Failed to copy URL", "error");
+    });
+  };
+
+  // Branch mapping initials helper
+  const getBranchInitials = (branch?: string): string => {
+    if (!branch) return '—';
+    const clean = branch.trim().toLowerCase();
+    
+    if (clean.includes('computer science engineering') || clean === 'cse') return 'CSE';
+    if (clean.includes('computer science') || clean === 'cs') return 'CS';
+    if (clean.includes('mechanical engineering') || clean === 'me' || clean === 'mechanical') return 'ME';
+    if (clean.includes('electrical engineering') || clean === 'ee') return 'EE';
+    if (clean.includes('electronics engineering') || clean === 'ece' || clean === 'electronics' || clean.includes('electronics & communication')) return 'ECE';
+    if (clean.includes('civil engineering') || clean === 'ce' || clean === 'civil') return 'CE';
+    if (clean.includes('information technology') || clean === 'it') return 'IT';
+
+    // Abbreviation fallback
+    const words = branch.trim().split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      return words.map(w => w[0].toUpperCase()).join('');
     }
+    return branch.substring(0, 3).toUpperCase();
+  };
+
+  // Semester value parsing helper
+  const getSemesterNumber = (semester?: string): string => {
+    if (!semester) return '—';
+    const clean = semester.trim();
+    const match = clean.match(/\d+/);
+    return match ? match[0] : clean;
+  };
+
+  // File size formatting helper
+  const formatFileSize = (bytes: any) => {
+    if (bytes === undefined || bytes === null || bytes === '') return '—';
+    const num = Number(bytes);
+    if (isNaN(num)) return bytes.toString();
+    if (num === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(num) / Math.log(k));
+    return parseFloat((num / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  // Safe Date formatter helper
+  const renderDateField = (val: any) => {
+    if (!val) return <span className="text-muted-foreground/50 italic text-xs">—</span>;
+    try {
+      if (typeof val.toDate === 'function') {
+        const date = val.toDate();
+        return <span>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>;
+      }
+      if (typeof val.seconds === 'number') {
+        const date = new Date(val.seconds * 1000);
+        return <span>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>;
+      }
+      const date = new Date(val);
+      if (!isNaN(date.getTime())) {
+        return <span>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>;
+      }
+    } catch (e) {
+      console.error("Error formatting date:", e);
+    }
+    return <span className="text-muted-foreground/50 italic text-xs">—</span>;
+  };
+
+  // File icon lookup helper
+  const getFileIcon = (mimeType?: string) => {
+    const mime = (mimeType || '').toLowerCase();
+    if (mime.includes('pdf')) return <FileText className="h-10 w-10 text-rose-500 shrink-0" />;
+    if (mime.includes('word') || mime.includes('officedocument')) return <FileText className="h-10 w-10 text-blue-500 shrink-0" />;
+    if (mime.includes('zip') || mime.includes('rar')) return <Layers className="h-10 w-10 text-amber-500 shrink-0" />;
+    return <File className="h-10 w-10 text-primary/75 shrink-0" />;
+  };
+
+  // Search logic filtering
+  const filtered = assignments.filter((item) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+
+    const titleMatch = item.title?.toLowerCase().includes(q) || false;
+    const subjectMatch = item.displaySubject?.toLowerCase().includes(q) || item.subject?.toLowerCase().includes(q) || false;
+    const uploaderMatch = item.uploaderName?.toLowerCase().includes(q) || false;
+
+    return titleMatch || subjectMatch || uploaderMatch;
+  });
+
+  // Timestamp resolver
+  const getTimestampMs = (val: any): number => {
+    if (!val) return 0;
+    if (typeof val.toDate === 'function') return val.toDate().getTime();
+    if (typeof val.seconds === 'number') return val.seconds * 1000;
+    const parsed = new Date(val).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  // Sorting logic
+  const sortedAssignments = [...filtered].sort((a, b) => {
+    if (sortBy === 'Latest') {
+      const timeA = getTimestampMs(a.uploadedAt || a.uploadTimestamp);
+      const timeB = getTimestampMs(b.uploadedAt || b.uploadTimestamp);
+      return timeB - timeA;
+    }
+    if (sortBy === 'Downloads') {
+      const dlA = Number(a.downloadsCount !== undefined ? a.downloadsCount : (a.downloads || 0));
+      const dlB = Number(b.downloadsCount !== undefined ? b.downloadsCount : (b.downloads || 0));
+      return dlB - dlA;
+    }
+    if (sortBy === 'Views') {
+      const vA = Number(a.viewsCount || 0);
+      const vB = Number(b.viewsCount || 0);
+      return vB - vA;
+    }
+    return 0;
+  });
+
+  const handleOpenDetails = (item: AssignmentItem) => {
+    setSelectedAssignment(item);
+    setIsDetailOpen(true);
   };
 
   return (
@@ -87,98 +248,153 @@ export const Assignments: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight font-heading">Assignments Hub</h2>
+          <h2 className="text-2xl font-bold tracking-tight font-heading">Assignments Repository Management</h2>
           <p className="text-sm text-muted-foreground">
-            Manage course assignments, problem sets, and tutor sheet templates.
+            Manage, review, and inspect student-submitted assignments.
           </p>
         </div>
-        <Button className="flex items-center gap-1 text-sm bg-primary hover:bg-primary/95 text-white">
-          <PlusCircle className="h-4 w-4" /> Create Assignment
+        <Button variant="outline" size="sm" onClick={fetchAssignments} className="flex items-center gap-1.5 shrink-0 bg-card">
+          <RefreshCw className="h-3.5 w-3.5" /> Reload Catalog
         </Button>
       </div>
 
-      {/* Toolbar */}
-      <Card className="border-border">
-        <CardContent className="p-4">
-          <div className="relative w-full">
+      {/* Search Toolbar */}
+      <Card className="border-border bg-card/50 backdrop-blur-sm shadow-premium">
+        <CardContent className="p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          {/* Search bar */}
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search assignments by topic, subject or instructor..."
+              placeholder="Search assignments by title, subject or instructor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 bg-accent/20 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
             />
+          </div>
+
+          {/* Sort Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground whitespace-nowrap font-medium">Sort by:</span>
+            <Select
+              className="w-36 text-xs bg-background"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+            >
+              <option value="Latest">Latest Upload</option>
+              <option value="Downloads">Most Downloaded</option>
+              <option value="Views">Most Viewed</option>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Table grid */}
-      <Card className="border-border overflow-hidden">
+      {/* Table Container */}
+      <Card className="border-border overflow-hidden shadow-premium">
         <CardContent className="p-0">
-          {filtered.length === 0 ? (
+          {loading ? (
+            /* Loading State Skeletons */
+            <div className="p-8 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <div className="h-4 w-28 bg-accent/60 rounded animate-pulse" />
+                <div className="h-4 w-44 bg-accent/60 rounded animate-pulse" />
+                <div className="h-4 w-32 bg-accent/60 rounded animate-pulse" />
+                <div className="h-4 w-20 bg-accent/60 rounded animate-pulse" />
+              </div>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between py-3 border-b border-border/40 last:border-0">
+                  <div className="h-4 w-16 bg-accent/60 rounded animate-pulse" />
+                  <div className="h-4 w-60 bg-accent/40 rounded animate-pulse" />
+                  <div className="h-4 w-24 bg-accent/40 rounded animate-pulse" />
+                  <div className="h-4 w-12 bg-accent/40 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            /* Error State */
             <div className="p-16 text-center flex flex-col items-center justify-center">
-              <ClipboardList className="h-12 w-12 text-muted-foreground mb-3" />
-              <h3 className="text-lg font-bold">No assignments found</h3>
-              <p className="text-sm text-muted-foreground mt-1">No worksheets match your query criteria.</p>
+              <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
+              <h3 className="text-lg font-bold">Query Failure</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mt-1">{error}</p>
+              <Button variant="outline" size="sm" onClick={fetchAssignments} className="mt-6">
+                Retry Query
+              </Button>
+            </div>
+          ) : sortedAssignments.length === 0 ? (
+            /* Empty State */
+            <div className="p-16 text-center flex flex-col items-center justify-center">
+              <div className="h-16 w-16 rounded-full bg-accent/40 flex items-center justify-center mb-4">
+                <GraduationCap className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-bold">No Assignments Found</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                {assignments.length === 0
+                  ? "The assignments collection in Firestore contains no document entries."
+                  : "No uploaded assignments match your search parameters."}
+              </p>
+              {searchQuery && (
+                <Button variant="outline" size="sm" onClick={() => setSearchQuery('')} className="mt-6">
+                  Clear Search
+                </Button>
+              )}
             </div>
           ) : (
+            /* Data Table list */
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    <th className="p-4 w-20">ID</th>
-                    <th className="p-4">Topic / Worksheet</th>
-                    <th className="p-4">Subject</th>
-                    <th className="p-4">Created By</th>
-                    <th className="p-4">Due Date</th>
-                    <th className="p-4 text-center">Status</th>
-                    <th className="p-4 text-right">Actions</th>
+                  <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                    <th className="p-4 w-16">S.NO.</th>
+                    <th className="p-4 w-[30%]">TITLE</th>
+                    <th className="p-4">SUBJECT</th>
+                    <th className="p-4">UPLOADER</th>
+                    <th className="p-4">BRANCH</th>
+                    <th className="p-4">SEM</th>
+                    <th className="p-4">FILE SIZE</th>
+                    <th className="p-4 text-center">DOWNLOADS</th>
+                    <th className="p-4 text-center">VIEWS</th>
+                    <th className="p-4 text-right">ACTION</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border text-sm">
-                  {filtered.map((item) => (
-                    <tr key={item.id} className="hover:bg-accent/20 transition-colors">
-                      <td className="p-4 font-mono text-xs text-muted-foreground">{item.id}</td>
-                      <td className="p-4 font-semibold text-foreground/90">{item.topic}</td>
-                      <td className="p-4 text-muted-foreground font-medium">{item.subject}</td>
-                      <td className="p-4 font-medium">{item.uploadedBy}</td>
-                      <td className="p-4 text-xs text-muted-foreground">{item.dueDate}</td>
-                      <td className="p-4 text-center">
-                        <Badge
-                          variant={
-                            item.status === 'Published'
-                              ? 'success'
-                              : item.status === 'Draft'
-                              ? 'warning'
-                              : 'secondary'
-                          }
-                        >
-                          {item.status}
-                        </Badge>
+                <tbody className="divide-y divide-border text-sm whitespace-nowrap">
+                  {sortedAssignments.map((item, index) => (
+                    <tr key={item.id} className="hover:bg-accent/20 transition-colors duration-150">
+                      <td className="p-4 font-semibold text-xs text-muted-foreground">
+                        {index + 1}
+                      </td>
+                      <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={item.title}>
+                        {item.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
+                      </td>
+                      <td className="p-4 text-muted-foreground font-medium">
+                        {item.displaySubject || item.subject || <span className="text-muted-foreground/50 italic">—</span>}
+                      </td>
+                      <td className="p-4 font-medium">
+                        {item.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
+                      </td>
+                      <td className="p-4">
+                        {getBranchInitials(item.branch)}
+                      </td>
+                      <td className="p-4">
+                        {getSemesterNumber(item.semester)}
+                      </td>
+                      <td className="p-4 text-xs font-mono">
+                        {formatFileSize(item.fileSize)}
+                      </td>
+                      <td className="p-4 text-center font-bold">
+                        {(item.downloadsCount !== undefined ? item.downloadsCount : (item.downloads || 0)).toLocaleString()}
+                      </td>
+                      <td className="p-4 text-center font-bold">
+                        {(item.viewsCount || 0).toLocaleString()}
                       </td>
                       <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            onClick={() => {
-                              setSelectedAssignment(item);
-                              setIsDetailOpen(true);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
+                          onClick={() => handleOpenDetails(item)}
+                        >
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -190,82 +406,233 @@ export const Assignments: React.FC = () => {
       </Card>
 
       {/* Detail Dialog */}
-      <Dialog isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)}>
+      <Dialog isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} className="max-w-2xl max-h-[90vh] flex flex-col min-h-0">
         {selectedAssignment && (
-          <>
-            <DialogHeader>
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline">{selectedAssignment.id}</Badge>
-                <Badge
-                  variant={
-                    selectedAssignment.status === 'Published'
-                      ? 'success'
-                      : selectedAssignment.status === 'Draft'
-                      ? 'warning'
-                      : 'secondary'
-                  }
-                >
-                  {selectedAssignment.status}
-                </Badge>
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Sticky Header Section */}
+            <DialogHeader className="border-b border-border/80 pb-4 mb-4 text-left shrink-0 pr-8">
+              <div className="flex items-start gap-4">
+                {/* Category Icon */}
+                <div className="p-4 rounded-2xl border shrink-0 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 animate-fade-in">
+                  <GraduationCap className="h-8 w-8" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
+                    {selectedAssignment.title || <span className="text-muted-foreground/60 italic font-normal">Untitled Assignment</span>}
+                    <Badge className="text-[10px] py-0 px-2 uppercase font-extrabold tracking-wide">
+                      Assignment
+                    </Badge>
+                  </DialogTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">
+                    {selectedAssignment.displaySubject || selectedAssignment.subject || 'No Subject Area'}
+                  </p>
+
+                  {/* Verification Badge */}
+                  <div className={`flex items-center gap-1 mt-2 text-xs font-bold px-2.5 py-0.5 rounded-full w-max ${
+                    selectedAssignment.isVerified
+                      ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20'
+                      : 'text-amber-500 bg-amber-500/10 border border-amber-500/20'
+                  }`}>
+                    {selectedAssignment.isVerified ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                    {selectedAssignment.isVerified ? 'Verified Resource' : 'Pending Verification'}
+                  </div>
+                </div>
               </div>
-              <DialogTitle className="text-xl font-bold tracking-tight">
-                {selectedAssignment.topic}
-              </DialogTitle>
-              <DialogDescription>
-                Instructed by {selectedAssignment.uploadedBy} • Due date: {selectedAssignment.dueDate}
-              </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 my-2">
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Description</span>
-                <p className="text-sm text-foreground/80 leading-relaxed bg-accent/15 p-3 rounded-lg border border-border">
-                  {selectedAssignment.description}
+            {/* Scrollable Dialog Content Body */}
+            <div className="flex-1 overflow-y-auto pr-2 py-1 space-y-6 select-text scrollbar-thin">
+              {/* Thumbnail / File Icon Preview */}
+              <div className="flex justify-center border-b border-border/50 pb-4">
+                {selectedAssignment.thumbnailUrl ? (
+                  <div className="w-full max-w-xs h-32 bg-accent/20 rounded-xl overflow-hidden border border-border flex items-center justify-center shadow-sm">
+                    <img src={selectedAssignment.thumbnailUrl} alt="Preview thumbnail" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-full max-w-xs h-24 bg-accent/15 rounded-xl border border-border flex items-center justify-center gap-3 shadow-inner">
+                    {getFileIcon(selectedAssignment.mimeType)}
+                    <div className="text-left">
+                      <span className="text-xs font-bold text-foreground block">Resource File</span>
+                      <span className="text-[10px] text-muted-foreground uppercase">{selectedAssignment.fileExtension || 'PDF'} format</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Information Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Academic Context */}
+                <Card className="border-border bg-accent/15 p-4 flex flex-col justify-between space-y-3">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <GraduationCap className="h-3.5 w-3.5" /> Academic Context
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Subject</span>
+                      <span className="font-semibold text-foreground">{selectedAssignment.displaySubject || selectedAssignment.subject || '—'}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Branch</span>
+                        <span className="font-semibold text-foreground">{selectedAssignment.branch || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Semester</span>
+                        <span className="font-semibold text-foreground">{selectedAssignment.semester || '—'}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Section context</span>
+                      <span className="font-semibold text-foreground">{selectedAssignment.sectionDisplay || '—'}</span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* File Details */}
+                <Card className="border-border bg-accent/15 p-4 flex flex-col justify-between space-y-3">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <File className="h-3.5 w-3.5" /> File metadata
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">File Size</span>
+                        <span className="font-semibold text-foreground">{formatFileSize(selectedAssignment.fileSize)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Extension</span>
+                        <span className="font-semibold text-foreground uppercase">.{selectedAssignment.fileExtension || 'pdf'}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">MIME Type</span>
+                      <span className="font-semibold text-foreground font-mono text-[10px]">{selectedAssignment.mimeType || '—'}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Attachments</span>
+                        <span className="font-semibold text-foreground">{selectedAssignment.attachmentCount ?? 0} file(s)</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Document Type</span>
+                        <span className="font-semibold text-foreground capitalize">{selectedAssignment.documentType || selectedAssignment.type || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Stats telemetry */}
+              <div className="space-y-3">
+                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Info className="h-3.5 w-3.5" /> Performance Stats
+                </h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-card border border-border/80 rounded-xl p-3 text-center shadow-sm">
+                    <Clock className="h-4 w-4 text-emerald-500 mx-auto mb-1" />
+                    <span className="text-[9px] text-muted-foreground block truncate font-medium">Downloads</span>
+                    <span className="text-lg font-bold text-foreground mt-0.5 block">
+                      {(selectedAssignment.downloadsCount !== undefined ? selectedAssignment.downloadsCount : (selectedAssignment.downloads || 0)).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="bg-card border border-border/80 rounded-xl p-3 text-center shadow-sm">
+                    <Eye className="h-4 w-4 text-blue-500 mx-auto mb-1" />
+                    <span className="text-[9px] text-muted-foreground block truncate font-medium">Views</span>
+                    <span className="text-lg font-bold text-foreground mt-0.5 block">
+                      {(selectedAssignment.viewsCount || 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="bg-card border border-border/80 rounded-xl p-3 text-center shadow-sm">
+                    <Calendar className="h-4 w-4 text-rose-500 mx-auto mb-1" />
+                    <span className="text-[9px] text-muted-foreground block truncate font-medium">Uploaded At</span>
+                    <span className="text-xs font-bold text-foreground mt-1.5 block truncate">
+                      {renderDateField(selectedAssignment.uploadedAt || selectedAssignment.uploadTimestamp)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Uploader Card */}
+              <Card className="border-border bg-accent/15 p-4 space-y-3">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Info className="h-3.5 w-3.5" /> Uploader Info
+                </h4>
+                <div className="space-y-1 text-xs">
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Uploaded By</span>
+                  <span className="font-semibold text-foreground">{selectedAssignment.uploaderName || 'Anonymous'}</span>
+                </div>
+              </Card>
+
+              {/* Description Card */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Assignment Description
+                </h4>
+                <p className="text-sm text-foreground/80 leading-relaxed bg-accent/10 p-4 rounded-xl border border-border/80 whitespace-pre-line">
+                  {selectedAssignment.description || <span className="text-muted-foreground/50 italic">No description provided for this worksheet.</span>}
                 </p>
               </div>
-              <div className="bg-accent/40 rounded-xl p-3 border border-border text-xs">
-                <span className="text-muted-foreground font-semibold block mb-1">Subject Context</span>
-                <span className="text-foreground font-medium flex items-center gap-1.5"><GraduationCap className="h-4 w-4 text-primary" /> {selectedAssignment.subject} Course Bundle</span>
+
+              {/* Document Operations Card */}
+              <div className="space-y-3">
+                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> Document Operations
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Open File Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-bold flex items-center gap-1.5 h-10 bg-card border-border/80 text-foreground hover:bg-accent/20"
+                    onClick={() => {
+                      if (selectedAssignment.fileUrl) {
+                        window.open(selectedAssignment.fileUrl, '_blank');
+                      } else {
+                        showToast("No File URL available", "error");
+                      }
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 text-primary" /> Open Document
+                  </Button>
+
+                  {/* Copy File URL Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-bold flex items-center gap-1.5 h-10 bg-card border-border/80 text-foreground hover:bg-accent/20"
+                    onClick={() => {
+                      if (selectedAssignment.fileUrl) {
+                        handleCopyText(selectedAssignment.fileUrl);
+                      } else {
+                        showToast("No File URL available", "error");
+                      }
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 text-muted-foreground" /> Copy URL
+                  </Button>
+                </div>
               </div>
             </div>
 
-            <DialogFooter>
-              <div className="flex items-center justify-between w-full mt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10 text-xs"
-                  onClick={() => handleDelete(selectedAssignment.id)}
-                >
-                  Delete Template
-                </Button>
-                <div className="flex items-center gap-2">
-                  {selectedAssignment.status !== 'Published' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => handleStatusChange(selectedAssignment.id, 'Published')}
-                    >
-                      Publish Now
-                    </Button>
-                  )}
-                  {selectedAssignment.status !== 'Draft' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => handleStatusChange(selectedAssignment.id, 'Draft')}
-                    >
-                      Move to Draft
-                    </Button>
-                  )}
-                </div>
-              </div>
+            {/* Sticky Action Footer Section */}
+            <DialogFooter className="mt-4 border-t border-border/60 pt-4 shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setIsDetailOpen(false)} className="w-full sm:w-auto">
+                Close Panel
+              </Button>
             </DialogFooter>
-          </>
+          </div>
         )}
       </Dialog>
+
+      {/* Premium Toast Notification */}
+      {toast.message && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-foreground text-background dark:bg-card dark:text-foreground px-4 py-3.5 rounded-xl shadow-2xl border border-border/80 animate-fade-in max-w-sm">
+          <Sparkles className="h-4 w-4 shrink-0 text-primary animate-pulse" />
+          <span className="text-xs font-bold">{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 };

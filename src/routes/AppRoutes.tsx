@@ -11,6 +11,7 @@ import { Notes } from '@/pages/Notes';
 import { Assignments } from '@/pages/Assignments';
 import { Pyqs } from '@/pages/Pyqs';
 import { Cheatsheets } from '@/pages/Cheatsheets';
+import { Videos } from '@/pages/Videos';
 import { Users } from '@/pages/Users';
 import { Settings } from '@/pages/Settings';
 
@@ -54,6 +55,7 @@ export const AppRoutes: React.FC = () => {
                 <Route path="notes" element={<Notes />} />
                 <Route path="assignments" element={<Assignments />} />
                 <Route path="pyqs" element={<Pyqs />} />
+                <Route path="videos" element={<Videos />} />
                 <Route path="cheatsheets" element={<Cheatsheets />} />
                 <Route path="users" element={<Users />} />
                 <Route path="settings" element={<Settings />} />

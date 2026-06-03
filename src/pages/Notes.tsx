@@ -71,6 +71,28 @@ interface ToastState {
   type: 'success' | 'info' | 'error';
 }
 
+const getBranchInitials = (branch?: string): string => {
+  if (!branch) return '—';
+  const clean = branch.trim().toLowerCase();
+  
+  if (clean.includes('computer science engineering') || clean === 'cse') return 'CSE';
+  if (clean.includes('computer science') || clean === 'cs') return 'CS';
+  if (clean.includes('mechanical engineering') || clean === 'me') return 'ME';
+  if (clean.includes('electrical engineering') || clean === 'ee') return 'EE';
+  if (clean.includes('electronics engineering') || clean === 'ece' || clean.includes('electronics & communication')) return 'ECE';
+  if (clean.includes('civil engineering') || clean === 'ce') return 'CE';
+  if (clean.includes('information technology') || clean === 'it') return 'IT';
+  
+  return branch;
+};
+
+const getSemesterNumber = (semester?: string): string => {
+  if (!semester) return '—';
+  const clean = semester.trim();
+  const match = clean.match(/\d+/);
+  return match ? match[0] : clean;
+};
+
 export const Notes: React.FC = () => {
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -312,24 +334,6 @@ export const Notes: React.FC = () => {
 
           {/* Quick Filters */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Type Selector Buttons */}
-            <div className="flex items-center gap-1 bg-accent/40 rounded-lg p-0.5 border border-border">
-              {(['All', 'Notes', 'Assignment', 'PYQ', 'Cheat Sheet'] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setTypeFilter(type)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150
-                    ${typeFilter === type
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                    }
-                  `}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-
             {/* Sort Selector */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground whitespace-nowrap font-medium">Sort by:</span>
@@ -402,26 +406,23 @@ export const Notes: React.FC = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                    <th className="p-4">Document ID</th>
+                    <th className="p-4">S.NO</th>
                     <th className="p-4 w-[25%]">Title</th>
                     <th className="p-4">Subject</th>
-                    <th className="p-4">Type</th>
                     <th className="p-4">Uploader</th>
                     <th className="p-4">Branch</th>
-                    <th className="p-4">Semester</th>
+                    <th className="p-4">SEM</th>
                     <th className="p-4">File Size</th>
                     <th className="p-4 text-center">Downloads</th>
                     <th className="p-4 text-center">Views</th>
-                    <th className="p-4">Verification</th>
-                    <th className="p-4">Uploaded Date</th>
                     <th className="p-4 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-sm whitespace-nowrap">
-                  {sortedNotes.map((note) => (
+                  {sortedNotes.map((note, index) => (
                     <tr key={note.id} className="hover:bg-accent/20 transition-colors duration-150">
-                      <td className="p-4 font-mono text-xs">
-                        {renderDocumentId(note.id)}
+                      <td className="p-4 font-semibold text-xs text-muted-foreground">
+                        {index + 1}
                       </td>
                       <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={note.title}>
                         {note.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
@@ -429,23 +430,14 @@ export const Notes: React.FC = () => {
                       <td className="p-4 text-muted-foreground font-medium">
                         {note.displaySubject || note.subject || <span className="text-muted-foreground/50 italic">—</span>}
                       </td>
-                      <td className="p-4">
-                        {note.documentType || note.type ? (
-                          <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-xs font-bold capitalize">
-                            {note.documentType || note.type}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground/50 italic">—</span>
-                        )}
-                      </td>
                       <td className="p-4 font-medium">
                         {note.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
                       </td>
                       <td className="p-4">
-                        {note.branch || <span className="text-muted-foreground/50 italic">—</span>}
+                        {getBranchInitials(note.branch)}
                       </td>
                       <td className="p-4">
-                        {note.semester || <span className="text-muted-foreground/50 italic">—</span>}
+                        {getSemesterNumber(note.semester)}
                       </td>
                       <td className="p-4 text-xs font-mono">
                         {formatFileSize(note.fileSize)}
@@ -455,14 +447,6 @@ export const Notes: React.FC = () => {
                       </td>
                       <td className="p-4 text-center font-bold">
                         {(note.viewsCount || 0).toLocaleString()}
-                      </td>
-                      <td className="p-4">
-                        <Badge variant={note.isVerified === true ? 'success' : 'warning'}>
-                          {note.isVerified === true ? 'Verified' : 'Pending'}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-xs text-muted-foreground">
-                        {renderDateField(note.uploadedAt || note.uploadTimestamp)}
                       </td>
                       <td className="p-4 text-right">
                         <Button

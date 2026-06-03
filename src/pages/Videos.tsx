@@ -12,8 +12,6 @@ import {
   Eye, 
   Calendar,
   Shield,
-  CheckCircle,
-  Clock,
   Info,
   RefreshCw,
   FileText,
@@ -22,10 +20,11 @@ import {
   Copy,
   ExternalLink,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Video
 } from 'lucide-react';
 
-interface CheatsheetItem {
+interface VideoItem {
   id: string;
   documentId?: string;
   title?: string;
@@ -35,31 +34,30 @@ interface CheatsheetItem {
   uploaderPhotoUrl?: string;
   branch?: string;
   semester?: string;
-  fileSize?: any;
-  downloadsCount?: number;
-  downloads?: number;
-  viewsCount?: number;
-  uploadedAt?: any;
-  uploadTimestamp?: any;
-  fileUrl?: string;
-  downloadUrl?: string;
+  channelName?: string;
+  playlistTitle?: string;
+  youtubeUrl?: string;
+  youtubeId?: string;
+  youtubePlaylistId?: string;
+  youtubeThumbnailUrl?: string;
   thumbnailUrl?: string;
+  youtubeResourceType?: string;
   description?: string;
-  mimeType?: string;
-  fileExtension?: string;
-  previewAttachmentType?: string;
-  attachmentCount?: number;
-  storagePath?: string;
-  isVerified?: boolean;
+  uploadTimestamp?: any;
+  uploadedAt?: any;
+  viewsCount?: number;
+  downloadsCount?: number;
+  likesCount?: number;
+  upvotes?: number;
   documentType?: string;
   type?: string;
 }
 
-export const Cheatsheets: React.FC = () => {
-  const [cheatsheets, setCheatsheets] = useState<CheatsheetItem[]>([]);
+export const Videos: React.FC = () => {
+  const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCheatsheet, setSelectedCheatsheet] = useState<CheatsheetItem | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   
   // Search and Sort states
@@ -69,23 +67,23 @@ export const Cheatsheets: React.FC = () => {
   // Toast feedback state
   const [toast, setToast] = useState<{ message: string | null; type: 'success' | 'info' | 'error' }>({ message: null, type: 'success' });
 
-  const fetchCheatsheets = async () => {
+  const fetchVideos = async () => {
     setLoading(true);
     setError(null);
     try {
-      const querySnapshot = await getDocs(collection(db, 'cheatsheets'));
+      const querySnapshot = await getDocs(collection(db, 'videos'));
       
-      // Mandatory debug logs for collection query results
-      console.log("Cheatsheets snapshot size:", querySnapshot.size);
-      console.log("Cheatsheets raw docs:", querySnapshot.docs);
-      console.log("Cheatsheets raw data:", querySnapshot.docs.map(d => d.data()));
+      // Mandatory debug visibility print
+      console.log("Videos snapshot size:", querySnapshot.size);
+      console.log("Videos raw docs:", querySnapshot.docs);
+      console.log("Videos raw data:", querySnapshot.docs.map(d => d.data()));
 
-      const fetched: CheatsheetItem[] = [];
+      const fetched: VideoItem[] = [];
       querySnapshot.forEach((doc) => {
-        const data = doc.data() as CheatsheetItem;
+        const data = doc.data() as VideoItem;
         
         // Exclude dummy or temp documents
-        if (!(data as any).temp && data.title) {
+        if (!(data as any).temp) {
           fetched.push({
             ...data,
             id: data.documentId || doc.id
@@ -93,18 +91,18 @@ export const Cheatsheets: React.FC = () => {
         }
       });
 
-      console.log("Cheatsheets mapped:", fetched);
-      setCheatsheets(fetched);
+      console.log("Videos mapped:", fetched);
+      setVideos(fetched);
     } catch (err: any) {
-      console.error("Error fetching cheatsheets collection from Firestore:", err);
-      setError("Failed to fetch cheatsheets directory from Firestore database.");
+      console.error("Error fetching videos collection from Firestore:", err);
+      setError("Failed to fetch videos directory from Firestore database.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCheatsheets();
+    fetchVideos();
   }, []);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
@@ -152,18 +150,6 @@ export const Cheatsheets: React.FC = () => {
     return match ? match[0] : clean;
   };
 
-  // File size formatting helper
-  const formatFileSize = (bytes: any) => {
-    if (bytes === undefined || bytes === null || bytes === '') return '—';
-    const num = Number(bytes);
-    if (isNaN(num)) return bytes.toString();
-    if (num === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(num) / Math.log(k));
-    return parseFloat((num / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
   // Safe Date formatter helper
   const renderDateField = (val: any) => {
     if (!val) return <span className="text-muted-foreground/50 italic text-xs">—</span>;
@@ -186,25 +172,27 @@ export const Cheatsheets: React.FC = () => {
     return <span className="text-muted-foreground/50 italic text-xs">—</span>;
   };
 
-  // File icon lookup helper
-  const getFileIcon = (mimeType?: string) => {
-    const mime = (mimeType || '').toLowerCase();
-    if (mime.includes('pdf')) return <FileText className="h-10 w-10 text-rose-500 shrink-0" />;
-    if (mime.includes('word') || mime.includes('officedocument')) return <FileText className="h-10 w-10 text-blue-500 shrink-0" />;
-    if (mime.includes('zip') || mime.includes('rar')) return <Layers className="h-10 w-10 text-amber-500 shrink-0" />;
-    return <File className="h-10 w-10 text-primary/75 shrink-0" />;
+  // Type label formatter
+  const formatResourceType = (type?: string): string => {
+    if (!type) return '—';
+    const clean = type.trim().toLowerCase();
+    if (clean === 'playlist') return 'Playlist';
+    if (clean === 'video') return 'Video';
+    return type;
   };
 
   // Search logic filtering
-  const filtered = cheatsheets.filter((item) => {
+  const filtered = videos.filter((item) => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
 
-    const titleMatch = item.title?.toLowerCase().includes(q) || false;
-    const subjectMatch = item.displaySubject?.toLowerCase().includes(q) || item.subject?.toLowerCase().includes(q) || false;
-    const uploaderMatch = item.uploaderName?.toLowerCase().includes(q) || false;
+    const titleMatch = (item.title ?? 'Untitled').toLowerCase().includes(q);
+    const subjectMatch = (item.displaySubject || item.subject || '—').toLowerCase().includes(q);
+    const channelMatch = (item.channelName ?? '—').toLowerCase().includes(q);
+    const uploaderMatch = (item.uploaderName ?? 'Anonymous').toLowerCase().includes(q);
+    const typeMatch = (item.youtubeResourceType ?? '—').toLowerCase().includes(q);
 
-    return titleMatch || subjectMatch || uploaderMatch;
+    return titleMatch || subjectMatch || channelMatch || uploaderMatch || typeMatch;
   });
 
   // Timestamp resolver
@@ -217,15 +205,15 @@ export const Cheatsheets: React.FC = () => {
   };
 
   // Sorting logic
-  const sortedCheatsheets = [...filtered].sort((a, b) => {
+  const sortedVideos = [...filtered].sort((a, b) => {
     if (sortBy === 'Latest') {
       const timeA = getTimestampMs(a.uploadedAt || a.uploadTimestamp);
       const timeB = getTimestampMs(b.uploadedAt || b.uploadTimestamp);
       return timeB - timeA;
     }
     if (sortBy === 'Downloads') {
-      const dlA = Number(a.downloadsCount !== undefined ? a.downloadsCount : (a.downloads || 0));
-      const dlB = Number(b.downloadsCount !== undefined ? b.downloadsCount : (b.downloads || 0));
+      const dlA = Number(a.downloadsCount !== undefined ? a.downloadsCount : 0);
+      const dlB = Number(b.downloadsCount !== undefined ? b.downloadsCount : 0);
       return dlB - dlA;
     }
     if (sortBy === 'Views') {
@@ -236,8 +224,8 @@ export const Cheatsheets: React.FC = () => {
     return 0;
   });
 
-  const handleOpenDetails = (item: CheatsheetItem) => {
-    setSelectedCheatsheet(item);
+  const handleOpenDetails = (item: VideoItem) => {
+    setSelectedVideo(item);
     setIsDetailOpen(true);
   };
 
@@ -246,12 +234,12 @@ export const Cheatsheets: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight font-heading">Cheatsheets Repository Management</h2>
+          <h2 className="text-2xl font-bold tracking-tight font-heading">Videos Repository Management</h2>
           <p className="text-sm text-muted-foreground">
-            Manage, review, and inspect student-submitted cheatsheets.
+            Manage, review, and inspect student-submitted educational video resources.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchCheatsheets} className="flex items-center gap-1.5 shrink-0 bg-card">
+        <Button variant="outline" size="sm" onClick={fetchVideos} className="flex items-center gap-1.5 shrink-0 bg-card">
           <RefreshCw className="h-3.5 w-3.5" /> Reload Catalog
         </Button>
       </div>
@@ -264,7 +252,7 @@ export const Cheatsheets: React.FC = () => {
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search cheatsheets by title, subject or instructor..."
+              placeholder="Search videos by title, subject, channel, uploader or type..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-accent/20 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
@@ -314,21 +302,21 @@ export const Cheatsheets: React.FC = () => {
               <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
               <h3 className="text-lg font-bold">Query Failure</h3>
               <p className="text-sm text-muted-foreground max-w-sm mt-1">{error}</p>
-              <Button variant="outline" size="sm" onClick={fetchCheatsheets} className="mt-6">
+              <Button variant="outline" size="sm" onClick={fetchVideos} className="mt-6">
                 Retry Query
               </Button>
             </div>
-          ) : sortedCheatsheets.length === 0 ? (
+          ) : sortedVideos.length === 0 ? (
             /* Empty State */
             <div className="p-16 text-center flex flex-col items-center justify-center">
               <div className="h-16 w-16 rounded-full bg-accent/40 flex items-center justify-center mb-4">
-                <Layers className="h-8 w-8 text-muted-foreground" />
+                <Video className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-bold">No Cheatsheets Found</h3>
+              <h3 className="text-lg font-bold">No Videos Found</h3>
               <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                {cheatsheets.length === 0
-                  ? "The cheatsheets collection in Firestore contains no document entries."
-                  : "No uploaded cheatsheets match your search parameters."}
+                {videos.length === 0
+                  ? "The videos collection in Firestore contains no document entries."
+                  : "No uploaded videos match your search parameters."}
               </p>
               {searchQuery && (
                 <Button variant="outline" size="sm" onClick={() => setSearchQuery('')} className="mt-6">
@@ -343,19 +331,20 @@ export const Cheatsheets: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
                     <th className="p-4 w-16">S.NO.</th>
-                    <th className="p-4 w-[30%]">TITLE</th>
+                    <th className="p-4 w-[25%]">TITLE</th>
                     <th className="p-4">SUBJECT</th>
+                    <th className="p-4">CHANNEL</th>
+                    <th className="p-4">TYPE</th>
                     <th className="p-4">UPLOADER</th>
                     <th className="p-4">BRANCH</th>
                     <th className="p-4">SEM</th>
-                    <th className="p-4">FILE SIZE</th>
-                    <th className="p-4 text-center">DOWNLOADS</th>
+                    <th className="p-4 text-center">LIKES</th>
                     <th className="p-4 text-center">VIEWS</th>
                     <th className="p-4 text-right">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-sm whitespace-nowrap">
-                  {sortedCheatsheets.map((item, index) => (
+                  {sortedVideos.map((item, index) => (
                     <tr key={item.id} className="hover:bg-accent/20 transition-colors duration-150">
                       <td className="p-4 font-semibold text-xs text-muted-foreground">
                         {index + 1}
@@ -366,6 +355,14 @@ export const Cheatsheets: React.FC = () => {
                       <td className="p-4 text-muted-foreground font-medium">
                         {item.displaySubject || item.subject || <span className="text-muted-foreground/50 italic">—</span>}
                       </td>
+                      <td className="p-4 text-muted-foreground font-medium">
+                        {item.channelName || <span className="text-muted-foreground/50 italic font-normal">—</span>}
+                      </td>
+                      <td className="p-4">
+                        <Badge variant="secondary" className="font-semibold text-[10px]">
+                          {formatResourceType(item.youtubeResourceType)}
+                        </Badge>
+                      </td>
                       <td className="p-4 font-medium">
                         {item.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
                       </td>
@@ -375,11 +372,8 @@ export const Cheatsheets: React.FC = () => {
                       <td className="p-4">
                         {getSemesterNumber(item.semester)}
                       </td>
-                      <td className="p-4 text-xs font-mono">
-                        {formatFileSize(item.fileSize)}
-                      </td>
                       <td className="p-4 text-center font-bold">
-                        {(item.downloadsCount !== undefined ? item.downloadsCount : (item.downloads || 0)).toLocaleString()}
+                        {(item.upvotes !== undefined ? item.upvotes : (item.likesCount || 0)).toLocaleString()}
                       </td>
                       <td className="p-4 text-center font-bold">
                         {(item.viewsCount || 0).toLocaleString()}
@@ -405,202 +399,168 @@ export const Cheatsheets: React.FC = () => {
 
       {/* Detail Dialog */}
       <Dialog isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} className="max-w-2xl max-h-[90vh] flex flex-col min-h-0">
-        {selectedCheatsheet && (
+        {selectedVideo && (
           <div className="flex flex-col flex-1 min-h-0">
             {/* Sticky Header Section */}
             <DialogHeader className="border-b border-border/80 pb-4 mb-4 text-left shrink-0 pr-8">
               <div className="flex items-start gap-4">
                 {/* Category Icon */}
-                <div className="p-4 rounded-2xl border shrink-0 bg-blue-500/10 text-blue-500 border-blue-500/20 animate-fade-in">
-                  <Layers className="h-8 w-8" />
+                <div className="p-4 rounded-2xl border shrink-0 bg-red-500/10 text-red-500 border-red-500/20 animate-fade-in">
+                  <Video className="h-8 w-8" />
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
-                    {selectedCheatsheet.title || <span className="text-muted-foreground/60 italic font-normal">Untitled Cheatsheet</span>}
-                    <Badge className="text-[10px] py-0 px-2 uppercase font-extrabold tracking-wide">
-                      Cheatsheet
+                    {selectedVideo.title || <span className="text-muted-foreground/60 italic font-normal">Untitled YouTube Resource</span>}
+                    <Badge className="text-[10px] py-0 px-2 uppercase font-extrabold tracking-wide bg-red-500/20 text-red-400 border-red-500/35">
+                      YouTube Resource
                     </Badge>
                   </DialogTitle>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">
-                    {selectedCheatsheet.displaySubject || selectedCheatsheet.subject || 'No Subject Area'}
+                    {selectedVideo.displaySubject || selectedVideo.subject || 'No Subject Area'}
+                    {selectedVideo.channelName && ` • ${selectedVideo.channelName}`}
+                    {selectedVideo.youtubeResourceType && ` • ${formatResourceType(selectedVideo.youtubeResourceType)}`}
                   </p>
-
-                  {/* Verification Badge */}
-                  <div className={`flex items-center gap-1 mt-2 text-xs font-bold px-2.5 py-0.5 rounded-full w-max ${
-                    selectedCheatsheet.isVerified
-                      ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20'
-                      : 'text-amber-500 bg-amber-500/10 border border-amber-500/20'
-                  }`}>
-                    {selectedCheatsheet.isVerified ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                    {selectedCheatsheet.isVerified ? 'Verified Resource' : 'Pending Verification'}
-                  </div>
                 </div>
               </div>
             </DialogHeader>
 
             {/* Scrollable Dialog Content Body */}
             <div className="flex-1 overflow-y-auto pr-2 py-1 space-y-6 select-text scrollbar-thin">
-              {/* Thumbnail / File Icon Preview */}
+              {/* Thumbnail Preview */}
               <div className="flex justify-center border-b border-border/50 pb-4">
-                {selectedCheatsheet.thumbnailUrl ? (
-                  <div className="w-full max-w-xs h-32 bg-accent/20 rounded-xl overflow-hidden border border-border flex items-center justify-center shadow-sm">
-                    <img src={selectedCheatsheet.thumbnailUrl} alt="Preview thumbnail" className="w-full h-full object-cover" />
+                {selectedVideo.youtubeThumbnailUrl || selectedVideo.thumbnailUrl ? (
+                  <div className="w-full max-w-md h-48 bg-accent/20 rounded-xl overflow-hidden border border-border flex items-center justify-center shadow-sm relative group">
+                    <img src={selectedVideo.youtubeThumbnailUrl || selectedVideo.thumbnailUrl} alt="Video thumbnail preview" className="w-full h-full object-cover" />
+                    {/* Visual play overlay mockup */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/50 transition-all pointer-events-none">
+                      <div className="h-14 w-14 rounded-full bg-red-600 flex items-center justify-center shadow-lg border border-red-500">
+                        <div className="w-0 h-0 border-t-8 border-t-transparent border-l-[14px] border-l-white border-b-8 border-b-transparent ml-1" />
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="w-full max-w-xs h-24 bg-accent/15 rounded-xl border border-border flex items-center justify-center gap-3 shadow-inner">
-                    {getFileIcon(selectedCheatsheet.mimeType)}
+                    <Video className="h-10 w-10 text-primary/75 shrink-0" />
                     <div className="text-left">
-                      <span className="text-xs font-bold text-foreground block">Reference File</span>
-                      <span className="text-[10px] text-muted-foreground uppercase">{selectedCheatsheet.fileExtension || 'PDF'} format</span>
+                      <span className="text-xs font-bold text-foreground block">Video Link</span>
+                      <span className="text-[10px] text-muted-foreground uppercase">YouTube Stream URL</span>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Information Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Academic Context */}
-                <Card className="border-border bg-accent/15 p-4 flex flex-col justify-between space-y-3">
-                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5" /> Academic Context
-                  </h4>
-                  <div className="space-y-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Subject</span>
-                      <span className="font-semibold text-foreground">{selectedCheatsheet.displaySubject || selectedCheatsheet.subject || '—'}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Branch</span>
-                        <span className="font-semibold text-foreground">{selectedCheatsheet.branch || '—'}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Semester</span>
-                        <span className="font-semibold text-foreground">{selectedCheatsheet.semester || '—'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* File Details */}
-                <Card className="border-border bg-accent/15 p-4 flex flex-col justify-between space-y-3">
-                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <File className="h-3.5 w-3.5" /> File metadata
-                  </h4>
-                  <div className="space-y-2 text-xs">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">File Size</span>
-                        <span className="font-semibold text-foreground">{formatFileSize(selectedCheatsheet.fileSize)}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Extension</span>
-                        <span className="font-semibold text-foreground uppercase">.{selectedCheatsheet.fileExtension || 'pdf'}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">MIME Type</span>
-                      <span className="font-semibold text-foreground font-mono text-[10px]">{selectedCheatsheet.mimeType || '—'}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Attachments</span>
-                        <span className="font-semibold text-foreground">{selectedCheatsheet.attachmentCount ?? 0} file(s)</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Document Type</span>
-                        <span className="font-semibold text-foreground capitalize">{selectedCheatsheet.documentType || selectedCheatsheet.type || '—'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-
-              {/* Stats telemetry */}
-              <div className="space-y-3">
-                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Info className="h-3.5 w-3.5" /> Performance Stats
-                </h4>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-card border border-border/80 rounded-xl p-3 text-center shadow-sm">
-                    <Clock className="h-4 w-4 text-emerald-500 mx-auto mb-1" />
-                    <span className="text-[9px] text-muted-foreground block truncate font-medium">Downloads</span>
-                    <span className="text-lg font-bold text-foreground mt-0.5 block">
-                      {(selectedCheatsheet.downloadsCount !== undefined ? selectedCheatsheet.downloadsCount : (selectedCheatsheet.downloads || 0)).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="bg-card border border-border/80 rounded-xl p-3 text-center shadow-sm">
-                    <Eye className="h-4 w-4 text-blue-500 mx-auto mb-1" />
-                    <span className="text-[9px] text-muted-foreground block truncate font-medium">Views</span>
-                    <span className="text-lg font-bold text-foreground mt-0.5 block">
-                      {(selectedCheatsheet.viewsCount || 0).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="bg-card border border-border/80 rounded-xl p-3 text-center shadow-sm">
-                    <Calendar className="h-4 w-4 text-rose-500 mx-auto mb-1" />
-                    <span className="text-[9px] text-muted-foreground block truncate font-medium">Uploaded At</span>
-                    <span className="text-xs font-bold text-foreground mt-1.5 block truncate">
-                      {renderDateField(selectedCheatsheet.uploadedAt || selectedCheatsheet.uploadTimestamp)}
-                    </span>
-                  </div>
+              {/* Simplified Metadata Grid - No heavy nested cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-5 gap-x-4 border border-border/80 bg-accent/10 p-5 rounded-xl text-xs">
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Subject</span>
+                  <span className="font-semibold text-foreground block mt-0.5">{selectedVideo.displaySubject || selectedVideo.subject || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Channel</span>
+                  <span className="font-semibold text-foreground block mt-0.5">{selectedVideo.channelName || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Resource Type</span>
+                  <span className="font-semibold text-foreground block mt-0.5">{formatResourceType(selectedVideo.youtubeResourceType)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Uploader</span>
+                  <span className="font-semibold text-foreground block mt-0.5">{selectedVideo.uploaderName || 'Anonymous'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Branch</span>
+                  <span className="font-semibold text-foreground block mt-0.5">{selectedVideo.branch || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Semester</span>
+                  <span className="font-semibold text-foreground block mt-0.5">{selectedVideo.semester || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Likes</span>
+                  <span className="font-semibold text-foreground block mt-0.5">
+                    {(selectedVideo.upvotes !== undefined ? selectedVideo.upvotes : (selectedVideo.likesCount || 0)).toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Views</span>
+                  <span className="font-semibold text-foreground block mt-0.5">
+                    {(selectedVideo.viewsCount || 0).toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Uploaded Date</span>
+                  <span className="font-semibold text-foreground block mt-0.5">
+                    {renderDateField(selectedVideo.uploadedAt || selectedVideo.uploadTimestamp)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Playlist Title</span>
+                  <span className="font-semibold text-foreground block mt-0.5 truncate max-w-[150px]" title={selectedVideo.playlistTitle}>
+                    {selectedVideo.playlistTitle || '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Document Type</span>
+                  <span className="font-semibold text-foreground block mt-0.5 capitalize">{selectedVideo.documentType || selectedVideo.type || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">YouTube URL</span>
+                  <span className="font-semibold text-primary block mt-0.5 truncate max-w-[150px]" title={selectedVideo.youtubeUrl}>
+                    {selectedVideo.youtubeUrl ? (
+                      <a href={selectedVideo.youtubeUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-0.5">
+                        Link <ExternalLink className="h-3 w-3 inline" />
+                      </a>
+                    ) : '—'}
+                  </span>
                 </div>
               </div>
-
-              {/* Uploader Card */}
-              <Card className="border-border bg-accent/15 p-4 space-y-3">
-                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Info className="h-3.5 w-3.5" /> Uploader Info
-                </h4>
-                <div className="space-y-1 text-xs">
-                  <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Uploaded By</span>
-                  <span className="font-semibold text-foreground">{selectedCheatsheet.uploaderName || 'Anonymous'}</span>
-                </div>
-              </Card>
 
               {/* Description Card */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5" /> Cheatsheet Description
-                </h4>
-                <p className="text-sm text-foreground/80 leading-relaxed bg-accent/10 p-4 rounded-xl border border-border/80 whitespace-pre-line">
-                  {selectedCheatsheet.description || <span className="text-muted-foreground/50 italic">No description provided for this cheatsheet.</span>}
-                </p>
-              </div>
+              {selectedVideo.description && (
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5" /> Video Description
+                  </h4>
+                  <p className="text-sm text-foreground/80 leading-relaxed bg-accent/10 p-4 rounded-xl border border-border/80 whitespace-pre-line">
+                    {selectedVideo.description}
+                  </p>
+                </div>
+              )}
 
               {/* Document Operations Card */}
               <div className="space-y-3">
                 <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Shield className="h-3.5 w-3.5" /> Document Operations
+                  <Shield className="h-3.5 w-3.5" /> Video Operations
                 </h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {/* Open File Button */}
+                  {/* Open Resource Button */}
                   <Button
                     variant="outline"
                     size="sm"
                     className="text-xs font-bold flex items-center gap-1.5 h-10 bg-card border-border/80 text-foreground hover:bg-accent/20"
                     onClick={() => {
-                      if (selectedCheatsheet.fileUrl) {
-                        window.open(selectedCheatsheet.fileUrl, '_blank');
+                      if (selectedVideo.youtubeUrl) {
+                        window.open(selectedVideo.youtubeUrl, '_blank');
                       } else {
-                        showToast("No File URL available", "error");
+                        showToast("No YouTube URL available", "error");
                       }
                     }}
                   >
-                    <ExternalLink className="h-3.5 w-3.5 text-primary" /> Open Document
+                    <ExternalLink className="h-3.5 w-3.5 text-primary" /> Open Resource
                   </Button>
 
-                  {/* Copy File URL Button */}
+                  {/* Copy Resource URL Button */}
                   <Button
                     variant="outline"
                     size="sm"
                     className="text-xs font-bold flex items-center gap-1.5 h-10 bg-card border-border/80 text-foreground hover:bg-accent/20"
                     onClick={() => {
-                      if (selectedCheatsheet.fileUrl) {
-                        handleCopyText(selectedCheatsheet.fileUrl);
+                      if (selectedVideo.youtubeUrl) {
+                        handleCopyText(selectedVideo.youtubeUrl);
                       } else {
-                        showToast("No File URL available", "error");
+                        showToast("No YouTube URL available", "error");
                       }
                     }}
                   >

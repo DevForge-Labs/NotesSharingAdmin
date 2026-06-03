@@ -105,7 +105,7 @@ export const Settings: React.FC = () => {
           <form onSubmit={handleSave}>
             {/* General Tab */}
             {activeTab === 'general' && (
-              <Card className="border-border">
+              <Card className="border-border bg-card/50 backdrop-blur-sm shadow-premium">
                 <CardHeader>
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <Sliders className="h-4 w-4 text-primary" /> General Platform Settings
@@ -121,6 +121,7 @@ export const Settings: React.FC = () => {
                       type="text"
                       value={siteName}
                       onChange={(e) => setSiteName(e.target.value)}
+                      className="bg-accent/20 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
                     />
                   </div>
 
@@ -130,6 +131,7 @@ export const Settings: React.FC = () => {
                         label="Records Per Page Limit"
                         value={pageLimit}
                         onChange={(e) => setPageLimit(e.target.value)}
+                        className="bg-accent/20 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
                       >
                         <option value="10">10 Rows</option>
                         <option value="25">25 Rows</option>
@@ -143,6 +145,7 @@ export const Settings: React.FC = () => {
                         label="Moderator Logs Status"
                         value={systemLogs}
                         onChange={(e) => setSystemLogs(e.target.value)}
+                        className="bg-accent/20 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
                       >
                         <option value="Enabled">Enabled (Write all edits to memory)</option>
                         <option value="Disabled">Disabled (Off)</option>
@@ -152,7 +155,7 @@ export const Settings: React.FC = () => {
                 </CardContent>
                 <CardFooter className="border-t border-border/60 pt-4 flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Values cached locally in the console layer.</span>
-                  <Button type="submit" size="sm" className="flex gap-1.5 items-center bg-primary hover:bg-primary/95 text-white">
+                  <Button type="submit" size="sm" className="flex gap-1.5 items-center bg-primary hover:bg-primary/95 text-white font-semibold shadow-sm">
                     {isSaved ? (
                       <>
                         <CheckCircle className="h-4 w-4" /> Changes Saved
@@ -169,7 +172,7 @@ export const Settings: React.FC = () => {
 
             {/* Upload Tab */}
             {activeTab === 'upload' && (
-              <Card className="border-border">
+              <Card className="border-border bg-card/50 backdrop-blur-sm shadow-premium">
                 <CardHeader>
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <Upload className="h-4 w-4 text-primary" /> Resource Upload Boundaries
@@ -185,6 +188,7 @@ export const Settings: React.FC = () => {
                       type="number"
                       value={maxFileSize}
                       onChange={(e) => setMaxFileSize(Number(e.target.value))}
+                      className="bg-accent/20 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
                     />
                   </div>
 
@@ -194,19 +198,19 @@ export const Settings: React.FC = () => {
                     </label>
                     <div className="grid grid-cols-2 gap-3 bg-accent/20 p-4 rounded-xl border border-border">
                       <div className="flex items-center gap-2 text-sm font-medium">
-                        <input type="checkbox" defaultChecked className="rounded border-input text-primary focus:ring-ring h-4 w-4" />
+                        <input type="checkbox" defaultChecked className="rounded border-input text-primary focus:ring-ring h-4 w-4 bg-background" />
                         <span>PDF (.pdf)</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm font-medium">
-                        <input type="checkbox" defaultChecked className="rounded border-input text-primary focus:ring-ring h-4 w-4" />
+                        <input type="checkbox" defaultChecked className="rounded border-input text-primary focus:ring-ring h-4 w-4 bg-background" />
                         <span>ZIP Archive (.zip)</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm font-medium">
-                        <input type="checkbox" defaultChecked className="rounded border-input text-primary focus:ring-ring h-4 w-4" />
+                        <input type="checkbox" defaultChecked className="rounded border-input text-primary focus:ring-ring h-4 w-4 bg-background" />
                         <span>Word Docs (.docx)</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm font-medium">
-                        <input type="checkbox" className="rounded border-input text-primary focus:ring-ring h-4 w-4" />
+                        <input type="checkbox" className="rounded border-input text-primary focus:ring-ring h-4 w-4 bg-background" />
                         <span>Images (.png, .jpg)</span>
                       </div>
                     </div>
@@ -227,7 +231,7 @@ export const Settings: React.FC = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="border-t border-border/60 pt-4 flex justify-end">
-                  <Button type="submit" size="sm" className="flex gap-1.5 items-center bg-primary hover:bg-primary/95 text-white">
+                  <Button type="submit" size="sm" className="flex gap-1.5 items-center bg-primary hover:bg-primary/95 text-white font-semibold shadow-sm">
                     {isSaved ? (
                       <>
                         <CheckCircle className="h-4 w-4" /> Constraints Saved
@@ -244,7 +248,7 @@ export const Settings: React.FC = () => {
 
             {/* Security/Keys Tab */}
             {activeTab === 'security' && (
-              <Card className="border-border">
+              <Card className="border-border bg-card/50 backdrop-blur-sm shadow-premium">
                 <CardHeader>
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <KeyRound className="h-4 w-4 text-primary" /> API Token Registry
@@ -275,7 +279,7 @@ export const Settings: React.FC = () => {
                     ))}
                   </div>
 
-                  <Button variant="outline" size="sm" type="button" className="text-xs mt-2">
+                  <Button variant="outline" size="sm" type="button" className="text-xs mt-2 bg-card">
                     + Generate New API Token
                   </Button>
                 </CardContent>

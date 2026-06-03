@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -12,8 +11,6 @@ import {
   Layers,
   Users as UsersIcon,
   Settings as SettingsIcon,
-  Sun,
-  Moon,
   Menu,
   X,
   Bell,
@@ -22,7 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Command
+  Command,
+  Video
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -32,7 +30,6 @@ interface SidebarItem {
 }
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { theme, toggleTheme } = useTheme();
   const { user: authUser, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -52,6 +49,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
     { name: 'Notes', path: '/notes', icon: <FileText className="h-4 w-4" /> },
     { name: 'Assignments', path: '/assignments', icon: <GraduationCap className="h-4 w-4" /> },
     { name: 'PYQs', path: '/pyqs', icon: <Layers className="h-4 w-4" /> },
+    { name: 'Videos', path: '/videos', icon: <Video className="h-4 w-4" /> },
     { name: 'Cheatsheets', path: '/cheatsheets', icon: <FileCode className="h-4 w-4" /> },
     { name: 'Users', path: '/users', icon: <UsersIcon className="h-4 w-4" /> },
     { name: 'Settings', path: '/settings', icon: <SettingsIcon className="h-4 w-4" /> },
@@ -237,15 +235,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
               <span className="absolute top-2 right-2 h-1.5 w-1.5 bg-primary rounded-full ring-2 ring-background" />
             </Button>
 
-            {/* Dark/Light mode toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="h-9 w-9 text-muted-foreground hover:text-foreground"
-            >
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
+
           </div>
         </header>
 

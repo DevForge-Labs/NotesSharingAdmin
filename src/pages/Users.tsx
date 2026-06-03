@@ -267,7 +267,7 @@ export const Users: React.FC = () => {
             Manage and view academic contributions, stats, and profile information of registered platform users.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchUsers} className="flex items-center gap-1.5 shrink-0">
+        <Button variant="outline" size="sm" onClick={fetchUsers} className="flex items-center gap-1.5 shrink-0 bg-card">
           <RefreshCw className="h-3.5 w-3.5" /> Reload Users
         </Button>
       </div>
@@ -345,7 +345,7 @@ export const Users: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
                     <th className="p-4 w-12">Avatar</th>
                     <th className="p-4">Name</th>
                     <th className="p-4">Email</th>
@@ -358,7 +358,7 @@ export const Users: React.FC = () => {
                     <th className="p-4 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border text-sm">
+                <tbody className="divide-y divide-border text-sm whitespace-nowrap">
                   {filteredUsers.map((user) => (
                     <tr key={user.uid} className="hover:bg-accent/20 transition-colors duration-150">
                       <td className="p-4">
