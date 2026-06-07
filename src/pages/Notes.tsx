@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { NotesMassUploadDialog } from '@/components/NotesMassUploadDialog';
 import {
   Search,
   Check,
@@ -34,7 +35,8 @@ import {
   CheckCircle,
   RefreshCw,
   FileDown,
-  ThumbsUp
+  ThumbsUp,
+  Upload
 } from 'lucide-react';
 
 interface NoteItem {
@@ -102,6 +104,7 @@ export const Notes: React.FC = () => {
   const [selectedNote, setSelectedNote] = useState<NoteItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [copiedType, setCopiedType] = useState<'fileUrl' | 'docId' | 'uploaderId' | null>(null);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState<boolean>(false);
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -335,9 +338,14 @@ export const Notes: React.FC = () => {
             Audit, verify, and manage student-submitted lecture papers, cheatsheets, and academic documents.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchNotes} className="flex items-center gap-1.5 shrink-0 bg-card">
-          <RefreshCw className="h-3.5 w-3.5" /> Reload Catalog
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={fetchNotes} className="flex items-center gap-1.5 bg-card">
+            <RefreshCw className="h-3.5 w-3.5" /> Reload Catalog
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsUploadDialogOpen(true)} className="flex items-center gap-1.5 bg-card">
+            <Upload className="h-3.5 w-3.5" /> Upload
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters toolbar */}
@@ -826,6 +834,14 @@ export const Notes: React.FC = () => {
           </div>
         )}
       </Dialog>
+
+      {/* Mass Upload Dialog */}
+      <NotesMassUploadDialog
+        isOpen={isUploadDialogOpen}
+        onClose={() => setIsUploadDialogOpen(false)}
+        onUploadSuccess={fetchNotes}
+        showToast={showToast}
+      />
 
       {/* Premium Toast/Snackbar Notification */}
       {toast.message && (
