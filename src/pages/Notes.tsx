@@ -64,7 +64,9 @@ interface NoteItem {
   fileExtension?: string;
   storagePath?: string;
   mimeType?: string;
+  temp?: boolean;
 }
+
 
 interface ToastState {
   message: string | null;
@@ -121,15 +123,36 @@ export const Notes: React.FC = () => {
     setError(null);
     try {
       const querySnapshot = await getDocs(collection(db, 'notes'));
-      const fetchedNotes: NoteItem[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data() as NoteItem;
-        fetchedNotes.push({
-          ...data,
-          id: data.documentId || doc.id
-        });
+      const validNotes = querySnapshot.docs
+        .map(doc => {
+          const data = doc.data() as NoteItem;
+          return {
+            ...data,
+            id: data.documentId || doc.id
+          };
+        })
+        .filter(note =>
+          note.title &&
+          note.documentId &&
+          !note.temp
+        );
+
+      console.log("Raw notes snapshot:", querySnapshot.size);
+      console.log("Valid notes count:", validNotes.length);
+
+      querySnapshot.docs.forEach(doc => {
+        const data = doc.data() as any;
+
+        if (!data.title || !data.documentId || data.temp) {
+          console.warn(
+            "Excluded invalid note:",
+            doc.id,
+            data
+          );
+        }
       });
-      setNotes(fetchedNotes);
+
+      setNotes(validNotes);
     } catch (err: any) {
       console.error("Error fetching notes collection from Firestore:", err);
       setError("Failed to fetch notes directory from Firestore database.");

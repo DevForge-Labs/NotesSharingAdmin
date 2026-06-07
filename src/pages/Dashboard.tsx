@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { isValidNoteDocument } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -60,6 +61,7 @@ interface DashboardStats {
   assignmentsCount: number;
   pyqsCount: number;
   cheatsheetsCount: number;
+  videosCount: number;
   verifiedCount: number;
   unverifiedCount: number;
 }
@@ -77,12 +79,24 @@ export const Dashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch Users collection (once)
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      const totalUsersCount = usersSnapshot.size;
+      // 1. Fetch all collections in parallel
+      const [
+        usersSnapshot,
+        notesSnapshot,
+        assignmentsSnapshot,
+        pyqsSnapshot,
+        cheatsheetsSnapshot,
+        videosSnapshot
+      ] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'notes')),
+        getDocs(collection(db, 'assignments')),
+        getDocs(collection(db, 'pyqs')),
+        getDocs(collection(db, 'cheatsheets')),
+        getDocs(collection(db, 'videos'))
+      ]);
 
-      // 2. Fetch Notes collection (once)
-      const notesSnapshot = await getDocs(collection(db, 'notes'));
+      const totalUsersCount = usersSnapshot.size;
       const notesList: NoteItem[] = [];
 
       let downloadsSum = 0;
@@ -90,57 +104,63 @@ export const Dashboard: React.FC = () => {
       let likesSum = 0;
       let bookmarksSum = 0;
 
-      let notesCount = 0;
-      let assignmentsCount = 0;
-      let pyqsCount = 0;
-      let cheatsheetsCount = 0;
-
-      let verifiedCount = 0;
-      let unverifiedCount = 0;
-
+      // Loop over Notes collection to compute telemetry sums and Notes list
       notesSnapshot.forEach((doc) => {
         const data = doc.data() as Omit<NoteItem, 'id'>;
         const id = doc.id;
         const note: NoteItem = { ...data, id };
         notesList.push(note);
 
-        // Sum downloads dynamically using downloadsCount or downloads fields
         downloadsSum += Number(data.downloadsCount !== undefined ? data.downloadsCount : (data.downloads || 0));
         viewsSum += Number(data.viewsCount || 0);
         likesSum += Number(data.upvotes !== undefined ? data.upvotes : (data.likesCount || 0));
 
-        // Sum bookmarks dynamically checking if array or numeric count
         const b = data.bookmarks;
         if (Array.isArray(b)) {
           bookmarksSum += b.length;
         } else {
           bookmarksSum += Number(b || 0);
         }
-
-        // Count category breakdowns using documentType or type
-        const rawType = (data.documentType || data.type || '').toString().toLowerCase().trim();
-        if (rawType.includes('note')) {
-          notesCount++;
-        } else if (rawType.includes('assign')) {
-          assignmentsCount++;
-        } else if (rawType.includes('pyq') || rawType.includes('exam') || rawType.includes('paper')) {
-          pyqsCount++;
-        } else if (rawType.includes('cheat') || rawType.includes('formula')) {
-          cheatsheetsCount++;
-        } else {
-          if (rawType === 'notes' || rawType === 'note') notesCount++;
-          else if (rawType === 'assignments' || rawType === 'assignment') assignmentsCount++;
-          else if (rawType === 'pyqs' || rawType === 'pyq') pyqsCount++;
-          else if (rawType === 'cheat sheets' || rawType === 'cheat sheet' || rawType === 'cheatsheet') cheatsheetsCount++;
-        }
-
-        // Count verification status using isVerified
-        if (data.isVerified === true) {
-          verifiedCount++;
-        } else {
-          unverifiedCount++;
-        }
       });
+
+      // Filter and count each category from its own collection using validation rules
+      const notesCount = notesSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        const valid = isValidNoteDocument(data);
+        if (!valid) {
+          console.log("Invalid note document", doc.id, data);
+        }
+        return valid;
+      }).length;
+      
+      const assignmentsCount = assignmentsSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        return !data.temp && data.title;
+      }).length;
+
+      const pyqsCount = pyqsSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        return !data.temp;
+      }).length;
+
+      const cheatsheetsCount = cheatsheetsSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        return !data.temp && data.title;
+      }).length;
+
+      const videosCount = videosSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        return !data.temp;
+      }).length;
+
+      // Debug logs as requested
+      console.log("Notes count:", notesCount);
+      console.log("Assignments count:", assignmentsCount);
+      console.log("PYQs count:", pyqsCount);
+      console.log("Cheatsheets count:", cheatsheetsCount);
+      console.log("Videos count:", videosCount);
+
+      const combinedTotal = notesCount + assignmentsCount + pyqsCount + cheatsheetsCount + videosCount;
 
       // Date parsing helper to safely format Firestore Timestamps to ms for client-side sorting
       const getTimestampMs = (val: any): number => {
@@ -177,7 +197,7 @@ export const Dashboard: React.FC = () => {
 
       setStats({
         totalUsers: totalUsersCount,
-        totalNotes: notesList.length,
+        totalNotes: combinedTotal,
         totalDownloads: downloadsSum,
         totalViews: viewsSum,
         totalLikes: likesSum,
@@ -186,12 +206,13 @@ export const Dashboard: React.FC = () => {
         assignmentsCount,
         pyqsCount,
         cheatsheetsCount,
-        verifiedCount,
-        unverifiedCount
+        videosCount,
+        verifiedCount: 0,
+        unverifiedCount: 0
       });
     } catch (err: any) {
       console.error("Error fetching and aggregating database stats:", err);
-      setError("Failed to load dashboard metrics from Firestore notes and users collections.");
+      setError("Failed to load dashboard metrics from Firestore collections.");
     } finally {
       setLoading(false);
     }
@@ -304,8 +325,8 @@ export const Dashboard: React.FC = () => {
           Platform Overview
         </h3>
         
-        {/* KPI Grid (6 cards) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* KPI Grid (5 cards) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
           
           {/* Total Registered Users */}
           <Card 
@@ -326,28 +347,6 @@ export const Dashboard: React.FC = () => {
               </div>
               <p className="text-[10px] text-muted-foreground mt-1.5">
                 Registered student profiles in database.
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Total Notes/Documents */}
-          <Card 
-            className="border-border bg-gradient-to-br from-card to-accent/5 hover:border-indigo-500/10 hover:shadow-premium-hover transition-all duration-300 flex flex-col justify-between"
-          >
-            <CardHeader className="flex flex-row items-center justify-between pb-2 p-5">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Total Notes/Documents
-              </span>
-              <div className="p-2.5 bg-indigo-500/10 text-indigo-500 rounded-xl">
-                <FileText className="h-5 w-5" />
-              </div>
-            </CardHeader>
-            <CardContent className="p-5 pt-0">
-              <div className="text-3xl font-extrabold tracking-tight font-heading text-indigo-500">
-                {stats?.totalNotes?.toLocaleString() ?? '0'}
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1.5">
-                Academic files and resources in catalog.
               </p>
             </CardContent>
           </Card>
@@ -443,181 +442,144 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Upload Breakdown & Verification Status Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Upload Breakdown Grid */}
-        <div className="lg:col-span-2 space-y-4">
-          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-            Upload Breakdown
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            
-            {/* Notes Breakdown */}
-            <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
-              <div className="flex items-center justify-between pb-2">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Notes
-                </span>
-                <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg">
-                  <FileText className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="text-3xl font-extrabold tracking-tight font-heading text-indigo-500">
-                  {getPercentage(stats?.notesCount ?? 0)}%
-                </div>
-                <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
-                  <div 
-                    className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${getPercentage(stats?.notesCount ?? 0)}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-                  {stats?.notesCount?.toLocaleString() ?? '0'} documents
-                </p>
-              </div>
-            </Card>
-
-            {/* Assignments Breakdown */}
-            <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
-              <div className="flex items-center justify-between pb-2">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Assignments
-                </span>
-                <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
-                  <GraduationCap className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="text-3xl font-extrabold tracking-tight font-heading text-emerald-500">
-                  {getPercentage(stats?.assignmentsCount ?? 0)}%
-                </div>
-                <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
-                  <div 
-                    className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${getPercentage(stats?.assignmentsCount ?? 0)}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-                  {stats?.assignmentsCount?.toLocaleString() ?? '0'} documents
-                </p>
-              </div>
-            </Card>
-
-            {/* PYQs Breakdown */}
-            <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
-              <div className="flex items-center justify-between pb-2">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  PYQs
-                </span>
-                <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
-                  <Layers className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="text-3xl font-extrabold tracking-tight font-heading text-amber-500">
-                  {getPercentage(stats?.pyqsCount ?? 0)}%
-                </div>
-                <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
-                  <div 
-                    className="bg-amber-500 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${getPercentage(stats?.pyqsCount ?? 0)}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-                  {stats?.pyqsCount?.toLocaleString() ?? '0'} documents
-                </p>
-              </div>
-            </Card>
-
-            {/* Cheatsheets Breakdown */}
-            <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
-              <div className="flex items-center justify-between pb-2">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Cheat Sheets
-                </span>
-                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
-                  <FileCode className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="text-3xl font-extrabold tracking-tight font-heading text-blue-500">
-                  {getPercentage(stats?.cheatsheetsCount ?? 0)}%
-                </div>
-                <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
-                  <div 
-                    className="bg-blue-500 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${getPercentage(stats?.cheatsheetsCount ?? 0)}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-                  {stats?.cheatsheetsCount?.toLocaleString() ?? '0'} documents
-                </p>
-              </div>
-            </Card>
-
-          </div>
-        </div>
-
-        {/* Verification Status Card */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-            Verification Telemetry
-          </h3>
-          <Card className="border-border bg-gradient-to-br from-card to-accent/5 p-5 hover:shadow-premium-hover transition-all duration-300 flex flex-col justify-between h-full min-h-[300px]">
-            <div>
-              <div className="flex items-center justify-between pb-2">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Verification Status
-                </span>
-                <ShieldCheck className="h-5 w-5 text-emerald-500 animate-pulse" />
-              </div>
-              
-              <div className="mt-4 text-center">
-                <div className="text-4xl font-extrabold tracking-tight font-heading text-emerald-500">
-                  {getVerifiedPercentage()}%
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
-                  Percentage of catalog contributions verified by moderation audit.
-                </p>
-              </div>
-
-              <div className="w-full bg-accent/30 h-2 rounded-full overflow-hidden mt-6 flex">
-                <div 
-                  className="bg-emerald-500 h-full transition-all duration-500" 
-                  style={{ width: `${getVerifiedPercentage()}%` }}
-                  title="Verified"
-                />
-                <div 
-                  className="bg-amber-500 h-full transition-all duration-500" 
-                  style={{ width: `${100 - Number(getVerifiedPercentage())}%` }}
-                  title="Unverified"
-                />
+      {/* Upload Breakdown Full-Width Section */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
+          Upload Breakdown
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+          
+          {/* Notes Breakdown */}
+          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Notes
+              </span>
+              <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg">
+                <FileText className="h-4 w-4" />
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-border/40">
-              <div className="text-center">
-                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider flex items-center justify-center gap-1">
-                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> Verified
-                </span>
-                <span className="text-xl font-bold text-emerald-500 mt-1 block">
-                  {stats?.verifiedCount?.toLocaleString() ?? '0'}
-                </span>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-indigo-500">
+                {getPercentage(stats?.notesCount ?? 0)}%
               </div>
-              <div className="text-center">
-                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider flex items-center justify-center gap-1">
-                  <Clock className="h-3.5 w-3.5 text-amber-500" /> Pending
-                </span>
-                <span className="text-xl font-bold text-amber-500 mt-1 block">
-                  {stats?.unverifiedCount?.toLocaleString() ?? '0'}
-                </span>
+              <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
+                <div 
+                  className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${getPercentage(stats?.notesCount ?? 0)}%` }}
+                />
               </div>
+              <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+                {stats?.notesCount?.toLocaleString() ?? '0'} documents
+              </p>
             </div>
           </Card>
-        </div>
 
+          {/* Assignments Breakdown */}
+          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Assignments
+              </span>
+              <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
+                <GraduationCap className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-emerald-500">
+                {getPercentage(stats?.assignmentsCount ?? 0)}%
+              </div>
+              <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
+                <div 
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${getPercentage(stats?.assignmentsCount ?? 0)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+                {stats?.assignmentsCount?.toLocaleString() ?? '0'} documents
+              </p>
+            </div>
+          </Card>
+
+          {/* PYQs Breakdown */}
+          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                PYQs
+              </span>
+              <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
+                <Layers className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-amber-500">
+                {getPercentage(stats?.pyqsCount ?? 0)}%
+              </div>
+              <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
+                <div 
+                  className="bg-amber-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${getPercentage(stats?.pyqsCount ?? 0)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+                {stats?.pyqsCount?.toLocaleString() ?? '0'} documents
+              </p>
+            </div>
+          </Card>
+
+          {/* Cheatsheets Breakdown */}
+          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Cheat Sheets
+              </span>
+              <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
+                <FileCode className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-blue-500">
+                {getPercentage(stats?.cheatsheetsCount ?? 0)}%
+              </div>
+              <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
+                <div 
+                  className="bg-blue-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${getPercentage(stats?.cheatsheetsCount ?? 0)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+                {stats?.cheatsheetsCount?.toLocaleString() ?? '0'} documents
+              </p>
+            </div>
+          </Card>
+
+          {/* Videos Breakdown */}
+          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Videos
+              </span>
+              <div className="p-2 bg-pink-500/10 text-pink-500 rounded-lg">
+                <Youtube className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold tracking-tight font-heading text-pink-500">
+                {getPercentage(stats?.videosCount ?? 0)}%
+              </div>
+              <div className="w-full bg-accent/30 h-1.5 rounded-full overflow-hidden mt-3">
+                <div 
+                  className="bg-pink-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${getPercentage(stats?.videosCount ?? 0)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+                {stats?.videosCount?.toLocaleString() ?? '0'} documents
+              </p>
+            </div>
+          </Card>
+
+        </div>
       </div>
 
       {/* Recent Uploads Table */}
