@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { CheatsheetsMassUploadDialog } from '@/components/CheatsheetsMassUploadDialog';
 import { 
   Search, 
   Eye, 
@@ -22,7 +23,8 @@ import {
   Copy,
   ExternalLink,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Upload
 } from 'lucide-react';
 
 interface CheatsheetItem {
@@ -61,6 +63,7 @@ export const Cheatsheets: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedCheatsheet, setSelectedCheatsheet] = useState<CheatsheetItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState<boolean>(false);
   
   // Search and Sort states
   const [searchQuery, setSearchQuery] = useState('');
@@ -245,15 +248,21 @@ export const Cheatsheets: React.FC = () => {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight font-heading">Cheatsheets Repository Management</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="relative">
+          <div className="absolute -left-3 top-0.5 bottom-0.5 w-1 bg-gradient-to-b from-violet-500 to-violet-500/10 rounded-full" />
+          <h2 className="text-2xl font-bold tracking-tight font-heading pl-3">Cheatsheets Repository Management</h2>
+          <p className="text-sm text-muted-foreground pl-3">
             Manage, review, and inspect student-submitted cheatsheets.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchCheatsheets} className="flex items-center gap-1.5 shrink-0 bg-card">
-          <RefreshCw className="h-3.5 w-3.5" /> Reload Catalog
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={fetchCheatsheets} className="flex items-center gap-1.5 bg-card">
+            <RefreshCw className="h-3.5 w-3.5" /> Reload Catalog
+          </Button>
+          <Button variant="default" size="sm" onClick={() => setIsUploadDialogOpen(true)} className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white shadow-[0_0_20px_rgba(139,92,246,0.18)] hover:shadow-[0_0_25px_rgba(139,92,246,0.28)] transition-all duration-200 border-0">
+            <Upload className="h-3.5 w-3.5" /> Upload
+          </Button>
+        </div>
       </div>
 
       {/* Search Toolbar */}
@@ -267,7 +276,7 @@ export const Cheatsheets: React.FC = () => {
               placeholder="Search cheatsheets by title, subject or instructor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-accent/20 border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+              className="pl-9 bg-accent/40 hover:bg-accent/60 border-border/80 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all duration-200"
             />
           </div>
 
@@ -341,7 +350,7 @@ export const Cheatsheets: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border bg-accent/30 text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                  <tr className="border-b border-border bg-accent/50 text-xs font-semibold text-foreground/90 uppercase tracking-wider whitespace-nowrap">
                     <th className="p-4 w-16">S.NO.</th>
                     <th className="p-4 w-[30%]">TITLE</th>
                     <th className="p-4">SUBJECT</th>
@@ -619,6 +628,14 @@ export const Cheatsheets: React.FC = () => {
           </div>
         )}
       </Dialog>
+
+      {/* Cheatsheets Mass Upload Dialog */}
+      <CheatsheetsMassUploadDialog
+        isOpen={isUploadDialogOpen}
+        onClose={() => setIsUploadDialogOpen(false)}
+        onUploadSuccess={fetchCheatsheets}
+        showToast={showToast}
+      />
 
       {/* Premium Toast Notification */}
       {toast.message && (

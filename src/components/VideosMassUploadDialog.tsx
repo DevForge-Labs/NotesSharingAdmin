@@ -4,13 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { subjectCatalog } from '../../data/subjectCatalog';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { 
-  Upload, 
-  FileText, 
+  Plus,
+  Video, 
   Trash2, 
   ChevronDown, 
   ChevronUp, 
@@ -21,7 +20,7 @@ import {
   Loader2
 } from 'lucide-react';
 
-interface NotesMassUploadDialogProps {
+interface VideosMassUploadDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onUploadSuccess?: () => void;
@@ -36,18 +35,46 @@ interface Subject {
 
 interface UploadQueueItem {
   id: string;
-  file: File;
-  title: string;
+  type: 'video' | 'playlist';
+  url: string;
   subject: string; // subject ID
   displaySubject: string; // subject name
   description: string;
-  status: 'queued' | 'uploading' | 'success' | 'failed';
+  title: string;
+  channelName: string;
+  thumbnailUrl: string;
+  status: 'queued' | 'processing' | 'success' | 'failed';
   progress: number;
   error?: string;
   isExpanded: boolean;
+  isLoadingMetadata: boolean;
+  isValidUrl: boolean;
 }
 
-export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
+const extractYoutubeVideoId = (url: string): string => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : '';
+};
+
+const extractYoutubePlaylistId = (url: string): string => {
+  const regExp = /[&?]list=([^#\&\?]+)/;
+  const match = url.match(regExp);
+  return match ? match[1] : '';
+};
+
+const fetchYoutubeMetadata = async (url: string) => {
+  const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+  if (!response.ok) throw new Error('Failed to fetch YouTube metadata');
+  const data = await response.json();
+  return {
+    title: data.title || 'YouTube Resource',
+    channelName: data.author_name || 'Unknown Channel',
+    thumbnailUrl: data.thumbnail_url || ''
+  };
+};
+
+export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
   isOpen,
   onClose,
   onUploadSuccess,
@@ -62,11 +89,8 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
   const [semester, setSemester] = useState<string>('');
   const [group, setGroup] = useState<string>('');
   const [files, setFiles] = useState<UploadQueueItem[]>([]);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [applyAllSubject, setApplyAllSubject] = useState<string>('');
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -134,77 +158,37 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
 
   const subjects = getResolvedSubjects();
 
-  // Helper to format file size
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
+  // Add video resource entry to queue
+  const handleAddResource = () => {
+    const generatedId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
-  // Handle addition of files
-  const handleAddFiles = (selectedFiles: FileList | null) => {
-    if (!selectedFiles) return;
+    const matchedSubject = subjects.find(s => s.id === applyAllSubject);
 
-    const newItems: UploadQueueItem[] = [];
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      if (file.type !== 'application/pdf') {
-        if (showToast) showToast('Only PDF files are supported.', 'error');
-        continue;
-      }
-
-      // Check if file already in queue to avoid duplicates
-      if (files.some(item => item.file.name === file.name && item.file.size === file.size)) {
-        continue;
-      }
-
-      // Prefill title with filename without extension
-      const titleWithoutExt = file.name.replace(/\.[^/.]+$/, "");
-
-      const generatedId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-
-      const matchedSubject = subjects.find(s => s.id === applyAllSubject);
-
-      newItems.push({
+    setFiles(prev => [
+      ...prev,
+      {
         id: generatedId,
-        file,
-        title: titleWithoutExt,
+        type: 'video',
+        url: '',
         subject: applyAllSubject,
         displaySubject: matchedSubject ? matchedSubject.name : '',
         description: '',
+        title: '',
+        channelName: '',
+        thumbnailUrl: '',
         status: 'queued',
         progress: 0,
-        isExpanded: false
-      });
-    }
-
-    if (newItems.length > 0) {
-      setFiles(prev => [...prev, ...newItems]);
-    }
-  };
-
-  // Drag & drop handlers
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleAddFiles(e.dataTransfer.files);
+        isExpanded: true,
+        isLoadingMetadata: false,
+        isValidUrl: false
+      }
+    ]);
   };
 
   // Update per-file metadata fields
-  const updateFileField = (id: string, field: keyof UploadQueueItem, value: any) => {
+  const updateFileField = async (id: string, field: keyof UploadQueueItem, value: any) => {
     setFiles(prev => prev.map(item => {
       if (item.id === id) {
         if (field === 'subject') {
@@ -219,6 +203,77 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
       }
       return item;
     }));
+
+    if (field === 'url') {
+      const url = value.trim();
+      const currentItem = files.find(f => f.id === id);
+      if (!currentItem) return;
+      const isVideo = currentItem.type === 'video';
+      const newId = isVideo ? extractYoutubeVideoId(url) : extractYoutubePlaylistId(url);
+      const oldId = isVideo ? extractYoutubeVideoId(currentItem.url) : extractYoutubePlaylistId(currentItem.url);
+      const isValid = !!newId;
+
+      if (isValid) {
+        if (newId !== oldId || !currentItem.isValidUrl) {
+          setFiles(prev => prev.map(item => item.id === id ? { ...item, isLoadingMetadata: true, error: undefined } : item));
+          try {
+            const meta = await fetchYoutubeMetadata(url);
+            setFiles(prev => prev.map(item => item.id === id ? {
+              ...item,
+              title: meta.title,
+              channelName: meta.channelName,
+              thumbnailUrl: meta.thumbnailUrl,
+              isLoadingMetadata: false,
+              isValidUrl: true
+            } : item));
+          } catch (err: any) {
+            console.error(err);
+            setFiles(prev => prev.map(item => item.id === id ? {
+              ...item,
+              isLoadingMetadata: false,
+              isValidUrl: false,
+              error: 'Failed to retrieve YouTube metadata.'
+            } : item));
+          }
+        }
+      } else {
+        setFiles(prev => prev.map(item => item.id === id ? {
+          ...item,
+          isValidUrl: false,
+          title: '',
+          channelName: '',
+          thumbnailUrl: ''
+        } : item));
+      }
+    }
+  };
+
+  // Handle type changes
+  const handleTypeChange = async (id: string, newType: 'video' | 'playlist') => {
+    setFiles(prev => prev.map(item => item.id === id ? { ...item, type: newType, title: '', channelName: '', thumbnailUrl: '', isValidUrl: false } : item));
+    
+    const item = files.find(f => f.id === id);
+    if (!item || !item.url) return;
+
+    const url = item.url.trim();
+    const isValid = newType === 'video' ? !!extractYoutubeVideoId(url) : !!extractYoutubePlaylistId(url);
+
+    if (isValid) {
+      setFiles(prev => prev.map(f => f.id === id ? { ...f, isLoadingMetadata: true } : f));
+      try {
+        const meta = await fetchYoutubeMetadata(url);
+        setFiles(prev => prev.map(f => f.id === id ? {
+          ...f,
+          title: meta.title,
+          channelName: meta.channelName,
+          thumbnailUrl: meta.thumbnailUrl,
+          isLoadingMetadata: false,
+          isValidUrl: true
+        } : f));
+      } catch (err) {
+        setFiles(prev => prev.map(f => f.id === id ? { ...f, isLoadingMetadata: false, isValidUrl: false, error: 'Failed to retrieve YouTube metadata' } : f));
+      }
+    }
   };
 
   // Remove file from queue
@@ -250,10 +305,10 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
 
   // Validation
   const isGlobalValid = !!branch && !!semester && (!isGroupRequired || !!group) && !!college;
-  const isQueueValid = files.length > 0 && files.every(f => !!f.title.trim() && !!f.subject);
+  const isQueueValid = files.length > 0 && files.every(f => !!f.subject && !!f.type && !!f.url.trim() && f.isValidUrl && !f.isLoadingMetadata);
   const isFormValid = isGlobalValid && isQueueValid && !isUploading;
 
-  // Real upload submit handler (Stage 5 & 6)
+  // Real upload submit handler
   const handleStartUpload = async () => {
     if (!isFormValid) return;
     setIsUploading(true);
@@ -266,81 +321,69 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
       const item = queueSnapshot[i];
       if (item.status === 'success') continue;
 
-      // Update file state to uploading
-      setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'uploading', progress: 0 } : f));
+      // Update file state to processing
+      setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'processing', progress: 50 } : f));
 
       try {
         const docId = item.id;
         const cleanSubjectId = item.subject.toLowerCase();
-        const fileName = item.file.name;
-        const storagePath = `notes/${cleanSubjectId}-notes-${docId}/${fileName}`;
+        const isPlaylist = item.type === 'playlist';
 
-        // Reference to Storage location
-        const storageRef = ref(storage, storagePath);
-        const uploadTask = uploadBytesResumable(storageRef, item.file);
+        let youtubeId = '';
+        let youtubeVideoId = '';
+        let youtubePlaylistId = '';
+        let generatedThumb = item.thumbnailUrl;
 
-        // Upload Promise to track progress and URL
-        const downloadUrl = await new Promise<string>((resolve, reject) => {
-          uploadTask.on('state_changed',
-            (snapshot) => {
-              const pct = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setFiles(prev => prev.map(f => f.id === item.id ? { ...f, progress: pct } : f));
-            },
-            (error) => {
-              reject(error);
-            },
-            async () => {
-              try {
-                const url = await getDownloadURL(uploadTask.snapshot.ref);
-                resolve(url);
-              } catch (urlErr) {
-                reject(urlErr);
-              }
-            }
-          );
-        });
+        if (isPlaylist) {
+          youtubeId = extractYoutubePlaylistId(item.url);
+          youtubePlaylistId = youtubeId;
+        } else {
+          youtubeId = extractYoutubeVideoId(item.url);
+          youtubeVideoId = youtubeId;
+          if (youtubeId) {
+            generatedThumb = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+          }
+        }
 
-        // Save note document metadata in Firestore
-        const docRef = doc(db, 'notes', docId);
+        // Save video document metadata in Firestore
+        const docRef = doc(db, 'videos', docId);
         const docData = {
           documentId: docId,
-          title: item.title.trim(),
-          subject: cleanSubjectId,
-          displaySubject: item.displaySubject,
+          title: item.title,
           description: item.description.trim() || '',
           branch: branch,
           semester: semester,
-          college: college,
-          documentType: 'Notes',
-          type: 'Notes',
-          mimeType: 'application/pdf',
-          fileType: 'pdf',
-          fileExtension: 'pdf',
-          fileSize: item.file.size,
-          fileUrl: downloadUrl,
-          downloadUrl: downloadUrl,
-          fileUrls: [downloadUrl],
-          storagePath: storagePath,
-          storagePaths: [storagePath],
-          isVerified: false,
-          uploaderName: currentUser?.displayName || 'Platform Admin',
+          subject: cleanSubjectId,
+          displaySubject: item.displaySubject,
+          searchKey: cleanSubjectId,
+          documentType: isPlaylist ? 'Playlist' : 'Video',
+          type: isPlaylist ? 'Playlist' : 'Video',
+          uploaderName: currentUser?.displayName || currentUser?.email || 'Admin',
           uploaderId: currentUser?.uid || 'admin-uploader',
           uploaderUid: currentUser?.uid || 'admin-uploader',
           uid: currentUser?.uid || 'admin-uploader',
           uploaderPhotoUrl: currentUser?.photoURL || '',
           uploadTimestamp: Date.now(),
           uploadedAt: Date.now(),
-          viewsCount: 0,
           downloadsCount: 0,
           downloads: 0,
           likesCount: 0,
           upvotes: 0,
           bookmarks: 0,
-          attachmentCount: 1,
-          searchKey: cleanSubjectId,
+          viewsCount: 0,
+          fileUrl: null,
+          storagePath: null,
+          isVerified: false,
           tags: [],
-          thumbnailUrl: '',
-          thumbnailGenerated: false
+          youtubeUrl: item.url.trim(),
+          youtubeId,
+          youtubeVideoId: youtubeVideoId || null,
+          youtubePlaylistId: youtubePlaylistId || null,
+          youtubeThumbnailUrl: generatedThumb,
+          thumbnailUrl: generatedThumb,
+          channelName: item.channelName,
+          youtubeResourceType: item.type,
+          college: college
         };
 
         await setDoc(docRef, docData);
@@ -349,17 +392,17 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
         setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'success', progress: 100 } : f));
 
       } catch (err: any) {
-        console.error('Notes mass upload error for file: ', item.file.name, err);
-        const errMsg = err?.message || 'Upload failed';
+        console.error('Video mass upload error for resource: ', item.url, err);
+        const errMsg = err?.message || 'Processing failed';
         setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'failed', error: errMsg } : f));
         setIsUploading(false);
-        if (showToast) showToast(`Upload failed for ${item.file.name}: ${errMsg}`, 'error');
+        if (showToast) showToast(`Upload failed for resource: ${errMsg}`, 'error');
         return; // Halt uploading of remaining files on failure
       }
     }
 
     setIsUploading(false);
-    if (showToast) showToast('All notes uploaded successfully!', 'success');
+    if (showToast) showToast('All video resources uploaded successfully!', 'success');
 
     // Close and refresh after success
     setTimeout(() => {
@@ -369,17 +412,17 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
   };
 
   const completedCount = files.filter(f => f.status === 'success').length;
-  const isAnyUploading = files.some(f => f.status === 'uploading');
+  const isAnyUploading = files.some(f => f.status === 'processing');
   const overallProgressMsg = isAnyUploading 
-    ? `Uploading ${completedCount + 1} of ${files.length} files...` 
+    ? `Uploading ${completedCount + 1} of ${files.length} resources...` 
     : '';
 
   return (
     <Dialog isOpen={isOpen} onClose={handleClose} className="max-w-5xl max-h-[90vh] flex flex-col min-h-0">
       <DialogHeader className="shrink-0 pb-2 border-b border-border/60">
-        <DialogTitle className="text-xl font-bold tracking-tight">Mass Upload Notes</DialogTitle>
+        <DialogTitle className="text-xl font-bold tracking-tight">Mass Upload Videos</DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground mt-1">
-          Bulk upload lecture notes, cheat sheets, and other PDF resources to the catalog.
+          Bulk add YouTube video lectures and playlists to the repository.
         </DialogDescription>
       </DialogHeader>
 
@@ -470,38 +513,24 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
           )}
         </div>
 
-        {/* Drag and Drop Zone */}
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => !isUploading && fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-8 text-center flex flex-col items-center justify-center cursor-pointer transition-all duration-200 select-none ${
-            isUploading ? 'opacity-50 pointer-events-none' : ''
-          } ${
-            isDragging 
-              ? 'border-violet-400 bg-violet-500/10 text-violet-400 scale-[0.99] shadow-[0_0_15px_rgba(139,92,246,0.15)]' 
-              : 'border-violet-500/40 bg-violet-500/[0.01] text-muted-foreground hover:bg-violet-500/5 hover:border-violet-400 hover:shadow-[0_0_15px_rgba(139,92,246,0.08)]'
-          }`}
-        >
-          <input
-            type="file"
-            multiple
-            accept="application/pdf"
-            ref={fileInputRef}
-            onChange={(e) => handleAddFiles(e.target.files)}
-            className="hidden"
-          />
-          <Upload className={`h-10 w-10 mb-3 transition-transform ${isDragging ? 'animate-bounce text-violet-400' : 'text-violet-500'}`} />
-          <h3 className="font-bold text-foreground text-sm">Drag & Drop PDF notes here</h3>
-          <p className="text-xs text-muted-foreground mt-1">or click to browse local files (PDF only)</p>
+        {/* Add Resource Button Action Zone */}
+        <div className="flex justify-center py-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddResource}
+            disabled={isUploading}
+            className="flex items-center gap-1.5 bg-card hover:bg-violet-500/5 border-dashed border-2 border-violet-500/40 hover:border-violet-400 py-5 px-6 font-bold rounded-xl text-xs w-full justify-center transition-all duration-200 hover:shadow-[0_0_15px_rgba(139,92,246,0.08)]"
+          >
+            <Plus className="h-4 w-4 text-violet-400" /> Add Resource
+          </Button>
         </div>
 
         {/* Empty State */}
         {files.length === 0 && (
           <div className="text-center py-8 border border-dashed border-border/40 rounded-xl bg-accent/5">
-            <span className="text-sm font-semibold text-muted-foreground block">No files added yet</span>
-            <span className="text-xs text-muted-foreground/60 block mt-1">Drag PDFs here or browse local files to queue them for upload</span>
+            <span className="text-sm font-semibold text-muted-foreground block">No video resources added yet</span>
+            <span className="text-xs text-muted-foreground/60 block mt-1">Click + Add Resource to begin</span>
           </div>
         )}
 
@@ -509,7 +538,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
         {files.length > 0 && isGlobalValid && (
           <div className="bg-accent/10 border border-border/60 p-4 rounded-xl space-y-2">
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              Apply Subject To All Files
+              Apply Subject To All Resources
             </h4>
             <div className="flex flex-col sm:flex-row gap-3 items-end">
               <div className="flex-1">
@@ -566,11 +595,11 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-border pb-1">
               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Upload Queue ({files.length})
+                Resources Queue ({files.length})
               </h4>
               {!isGlobalValid && (
                 <span className="text-[10px] text-amber-500 font-bold flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> Select Global Branch & Sem first
+                  <AlertCircle className="h-3 w-3" /> Select Global College, Branch & Sem first
                 </span>
               )}
             </div>
@@ -591,13 +620,13 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
                     className="flex items-center justify-between p-3 select-none hover:bg-accent/15 cursor-pointer text-xs"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <FileText className="h-4 w-4 text-primary shrink-0" />
+                      <Video className="h-4 w-4 text-red-500 shrink-0" />
                       <div className="min-w-0 flex-1 pr-4">
-                        <span className="font-semibold text-foreground truncate block" title={item.file.name}>
-                          {item.file.name}
+                        <span className="font-semibold text-foreground truncate block" title={item.title || item.url || 'New Video Resource'}>
+                          {item.title || item.url || 'New Video Resource'}
                         </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatFileSize(item.file.size)}
+                        <span className="text-[10px] text-muted-foreground capitalize">
+                          {item.type}
                         </span>
                       </div>
                     </div>
@@ -610,9 +639,9 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
                             <Clock className="h-2.5 w-2.5" /> Queued
                           </span>
                         )}
-                        {item.status === 'uploading' && (
+                        {item.status === 'processing' && (
                           <span className="text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
-                            <Loader2 className="h-2.5 w-2.5 animate-spin" /> Uploading {Math.round(item.progress)}%
+                            <Loader2 className="h-2.5 w-2.5 animate-spin" /> Processing...
                           </span>
                         )}
                         {item.status === 'success' && (
@@ -646,12 +675,9 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
                   </div>
 
                   {/* Progress Bar for individual item */}
-                  {item.status === 'uploading' && (
-                    <div className="w-full bg-zinc-800 h-1">
-                      <div 
-                        className="bg-violet-500 h-1 transition-all duration-300" 
-                        style={{ width: `${item.progress}%` }}
-                      />
+                  {item.status === 'processing' && (
+                    <div className="w-full bg-zinc-800 h-1 overflow-hidden">
+                      <div className="bg-violet-500 h-1 w-1/2 animate-pulse" />
                     </div>
                   )}
                   {item.status === 'success' && (
@@ -667,23 +693,39 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
 
                   {/* Item Body */}
                   {item.isExpanded && (
-                    <div className="p-3.5 border-t border-border/50 bg-accent/5 space-y-3 text-xs">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        {/* Title field */}
+                    <div className="p-3.5 border-t border-border/50 bg-accent/5 space-y-3.5 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                        {/* Type Selector */}
                         <div>
+                          <Select
+                            label="Resource Type *"
+                            value={item.type}
+                            onChange={(e) => handleTypeChange(item.id, e.target.value as any)}
+                            disabled={isUploading || item.status === 'success'}
+                            className="bg-card text-foreground"
+                          >
+                            <option value="video">Video</option>
+                            <option value="playlist">Playlist</option>
+                          </Select>
+                        </div>
+
+                        {/* URL field */}
+                        <div className="sm:col-span-2">
                           <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">
-                            Document Title *
+                            YouTube URL *
                           </label>
                           <Input
                             type="text"
-                            placeholder="Enter a descriptive title..."
-                            value={item.title}
-                            onChange={(e) => updateFileField(item.id, 'title', e.target.value)}
+                            placeholder={item.type === 'video' ? "https://www.youtube.com/watch?v=..." : "https://www.youtube.com/playlist?list=..."}
+                            value={item.url}
+                            onChange={(e) => updateFileField(item.id, 'url', e.target.value)}
                             disabled={isUploading || item.status === 'success'}
                             className="bg-card text-foreground"
                           />
                         </div>
+                      </div>
 
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                         {/* Subject Selector */}
                         <div>
                           <Select
@@ -701,22 +743,60 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
                             ))}
                           </Select>
                         </div>
+
+                        {/* Description field */}
+                        <div className="sm:col-span-2">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">
+                            Description (Optional)
+                          </label>
+                          <textarea
+                            placeholder="Provide any additional context or description..."
+                            value={item.description}
+                            onChange={(e) => updateFileField(item.id, 'description', e.target.value)}
+                            disabled={isUploading || item.status === 'success'}
+                            rows={1}
+                            className="flex w-full rounded-md border border-input bg-card px-3 py-1.5 text-sm shadow-sm transition-all placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground resize-none"
+                          />
+                        </div>
                       </div>
 
-                      {/* Description field */}
-                      <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">
-                          Description (Optional)
-                        </label>
-                        <textarea
-                          placeholder="Provide any additional context or description..."
-                          value={item.description}
-                          onChange={(e) => updateFileField(item.id, 'description', e.target.value)}
-                          disabled={isUploading || item.status === 'success'}
-                          rows={2}
-                          className="flex w-full rounded-md border border-input bg-card px-3 py-1.5 text-sm shadow-sm transition-all placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground resize-none"
-                        />
-                      </div>
+                      {/* YouTube Preview Card */}
+                      {item.isLoadingMetadata && (
+                        <div className="flex items-center justify-center p-4 bg-card border rounded-xl border-dashed">
+                          <Loader2 className="h-4 w-4 animate-spin text-primary mr-2" />
+                          <span className="text-muted-foreground font-semibold">Fetching YouTube metadata...</span>
+                        </div>
+                      )}
+
+                      {!item.isLoadingMetadata && item.isValidUrl && item.title && (
+                        <div className="flex items-start gap-4 p-3 bg-card border border-border/80 rounded-xl">
+                          {item.thumbnailUrl && (
+                            <img 
+                              src={item.thumbnailUrl} 
+                              alt="Thumbnail preview" 
+                              className="w-24 h-16 object-cover rounded border bg-accent/20 shrink-0" 
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <span className="font-bold text-foreground text-xs block truncate" title={item.title}>
+                              {item.title}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground block mt-1 font-semibold">
+                              Channel: {item.channelName}
+                            </span>
+                            <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded font-extrabold bg-red-500/10 text-red-500 border border-red-500/20 w-max mt-2 block">
+                              {item.type === 'video' ? 'Video' : 'Playlist'} Preview
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {item.error && (
+                        <div className="flex items-center gap-1.5 p-2 bg-destructive/10 text-destructive text-[11px] font-semibold rounded-lg border border-destructive/20">
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          {item.error}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

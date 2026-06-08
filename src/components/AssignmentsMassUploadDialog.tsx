@@ -21,7 +21,7 @@ import {
   Loader2
 } from 'lucide-react';
 
-interface NotesMassUploadDialogProps {
+interface AssignmentsMassUploadDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onUploadSuccess?: () => void;
@@ -40,6 +40,7 @@ interface UploadQueueItem {
   title: string;
   subject: string; // subject ID
   displaySubject: string; // subject name
+  section: string;
   description: string;
   status: 'queued' | 'uploading' | 'success' | 'failed';
   progress: number;
@@ -47,7 +48,25 @@ interface UploadQueueItem {
   isExpanded: boolean;
 }
 
-export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
+const normalizeSection = (rawSection: string) => {
+  const normalizedSection = rawSection
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '');
+
+  const prefixMatch = normalizedSection.match(/^[a-zA-Z]+/);
+  const prefix = prefixMatch ? prefixMatch[0].toUpperCase() : '';
+  const suffix = normalizedSection.slice(prefix.length);
+
+  const sectionDisplay = (prefix && suffix) ? `${prefix}-${suffix}` : normalizedSection.toUpperCase();
+
+  return {
+    section: normalizedSection,
+    sectionDisplay
+  };
+};
+
+export const AssignmentsMassUploadDialog: React.FC<AssignmentsMassUploadDialogProps> = ({
   isOpen,
   onClose,
   onUploadSuccess,
@@ -175,6 +194,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
         title: titleWithoutExt,
         subject: applyAllSubject,
         displaySubject: matchedSubject ? matchedSubject.name : '',
+        section: '',
         description: '',
         status: 'queued',
         progress: 0,
@@ -250,10 +270,10 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
 
   // Validation
   const isGlobalValid = !!branch && !!semester && (!isGroupRequired || !!group) && !!college;
-  const isQueueValid = files.length > 0 && files.every(f => !!f.title.trim() && !!f.subject);
+  const isQueueValid = files.length > 0 && files.every(f => !!f.title.trim() && !!f.subject && !!f.section.trim());
   const isFormValid = isGlobalValid && isQueueValid && !isUploading;
 
-  // Real upload submit handler (Stage 5 & 6)
+  // Real upload submit handler
   const handleStartUpload = async () => {
     if (!isFormValid) return;
     setIsUploading(true);
@@ -272,8 +292,10 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
       try {
         const docId = item.id;
         const cleanSubjectId = item.subject.toLowerCase();
-        const fileName = item.file.name;
-        const storagePath = `notes/${cleanSubjectId}-notes-${docId}/${fileName}`;
+        const { section: parsedSection, sectionDisplay } = normalizeSection(item.section);
+        const fileName = "solution.pdf";
+        const folderSlug = `${cleanSubjectId}-assignment-${docId}`;
+        const storagePath = `assignments/${folderSlug}/${fileName}`;
 
         // Reference to Storage location
         const storageRef = ref(storage, storagePath);
@@ -300,47 +322,49 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
           );
         });
 
-        // Save note document metadata in Firestore
-        const docRef = doc(db, 'notes', docId);
+        // Save assignment document metadata in Firestore
+        const docRef = doc(db, 'assignments', docId);
         const docData = {
           documentId: docId,
           title: item.title.trim(),
-          subject: cleanSubjectId,
-          displaySubject: item.displaySubject,
           description: item.description.trim() || '',
           branch: branch,
           semester: semester,
-          college: college,
-          documentType: 'Notes',
-          type: 'Notes',
-          mimeType: 'application/pdf',
-          fileType: 'pdf',
-          fileExtension: 'pdf',
-          fileSize: item.file.size,
-          fileUrl: downloadUrl,
-          downloadUrl: downloadUrl,
-          fileUrls: [downloadUrl],
-          storagePath: storagePath,
-          storagePaths: [storagePath],
-          isVerified: false,
-          uploaderName: currentUser?.displayName || 'Platform Admin',
+          subject: cleanSubjectId,
+          displaySubject: item.displaySubject,
+          searchKey: cleanSubjectId,
+          documentType: 'Assignment',
+          type: 'Assignment',
+          uploaderName: currentUser?.displayName || currentUser?.email || 'Admin',
           uploaderId: currentUser?.uid || 'admin-uploader',
           uploaderUid: currentUser?.uid || 'admin-uploader',
           uid: currentUser?.uid || 'admin-uploader',
           uploaderPhotoUrl: currentUser?.photoURL || '',
           uploadTimestamp: Date.now(),
           uploadedAt: Date.now(),
-          viewsCount: 0,
           downloadsCount: 0,
           downloads: 0,
           likesCount: 0,
           upvotes: 0,
           bookmarks: 0,
-          attachmentCount: 1,
-          searchKey: cleanSubjectId,
+          viewsCount: 0,
+          fileUrl: downloadUrl,
+          downloadUrl: downloadUrl,
+          storagePath: storagePath,
+          storagePaths: [storagePath],
+          fileUrls: [downloadUrl],
+          fileSize: item.file.size,
+          fileExtension: 'pdf',
+          isVerified: false,
           tags: [],
+          fileType: 'pdf',
+          mimeType: 'application/pdf',
           thumbnailUrl: '',
-          thumbnailGenerated: false
+          thumbnailGenerated: false,
+          attachmentCount: 1,
+          section: parsedSection,
+          sectionDisplay: sectionDisplay,
+          college: college
         };
 
         await setDoc(docRef, docData);
@@ -349,7 +373,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
         setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'success', progress: 100 } : f));
 
       } catch (err: any) {
-        console.error('Notes mass upload error for file: ', item.file.name, err);
+        console.error('Assignment mass upload error for file: ', item.file.name, err);
         const errMsg = err?.message || 'Upload failed';
         setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'failed', error: errMsg } : f));
         setIsUploading(false);
@@ -359,7 +383,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
     }
 
     setIsUploading(false);
-    if (showToast) showToast('All notes uploaded successfully!', 'success');
+    if (showToast) showToast('All assignments uploaded successfully!', 'success');
 
     // Close and refresh after success
     setTimeout(() => {
@@ -377,9 +401,9 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
   return (
     <Dialog isOpen={isOpen} onClose={handleClose} className="max-w-5xl max-h-[90vh] flex flex-col min-h-0">
       <DialogHeader className="shrink-0 pb-2 border-b border-border/60">
-        <DialogTitle className="text-xl font-bold tracking-tight">Mass Upload Notes</DialogTitle>
+        <DialogTitle className="text-xl font-bold tracking-tight">Mass Upload Assignments</DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground mt-1">
-          Bulk upload lecture notes, cheat sheets, and other PDF resources to the catalog.
+          Bulk upload student assignment worksheets and PDFs to the repository.
         </DialogDescription>
       </DialogHeader>
 
@@ -493,7 +517,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
             className="hidden"
           />
           <Upload className={`h-10 w-10 mb-3 transition-transform ${isDragging ? 'animate-bounce text-violet-400' : 'text-violet-500'}`} />
-          <h3 className="font-bold text-foreground text-sm">Drag & Drop PDF notes here</h3>
+          <h3 className="font-bold text-foreground text-sm">Drag & Drop PDF assignments here</h3>
           <p className="text-xs text-muted-foreground mt-1">or click to browse local files (PDF only)</p>
         </div>
 
@@ -570,7 +594,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
               </h4>
               {!isGlobalValid && (
                 <span className="text-[10px] text-amber-500 font-bold flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" /> Select Global Branch & Sem first
+                  <AlertCircle className="h-3 w-3" /> Select Global College, Branch & Sem first
                 </span>
               )}
             </div>
@@ -668,7 +692,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
                   {/* Item Body */}
                   {item.isExpanded && (
                     <div className="p-3.5 border-t border-border/50 bg-accent/5 space-y-3 text-xs">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                         {/* Title field */}
                         <div>
                           <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">
@@ -700,6 +724,21 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
                               </option>
                             ))}
                           </Select>
+                        </div>
+
+                        {/* Section field */}
+                        <div>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">
+                            Section *
+                          </label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. CSE-52, ECE 2"
+                            value={item.section}
+                            onChange={(e) => updateFileField(item.id, 'section', e.target.value)}
+                            disabled={isUploading || item.status === 'success'}
+                            className="bg-card text-foreground"
+                          />
                         </div>
                       </div>
 
