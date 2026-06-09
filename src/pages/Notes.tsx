@@ -31,6 +31,7 @@ import {
   ChevronDown,
   Layers,
   GraduationCap,
+  File,
   FileCode,
   FileText,
   CheckCircle,
@@ -67,6 +68,7 @@ interface NoteItem {
   fileExtension?: string;
   storagePath?: string;
   mimeType?: string;
+  thumbnailUrl?: string;
   temp?: boolean;
 }
 
@@ -96,6 +98,14 @@ const getSemesterNumber = (semester?: string): string => {
   const clean = semester.trim();
   const match = clean.match(/\d+/);
   return match ? match[0] : clean;
+};
+
+const getFileIcon = (mimeType?: string) => {
+  const mime = (mimeType || '').toLowerCase();
+  if (mime.includes('pdf')) return <FileText className="h-10 w-10 text-rose-500 shrink-0" />;
+  if (mime.includes('word') || mime.includes('officedocument')) return <FileText className="h-10 w-10 text-blue-500 shrink-0" />;
+  if (mime.includes('zip') || mime.includes('rar')) return <Layers className="h-10 w-10 text-amber-500 shrink-0" />;
+  return <File className="h-10 w-10 text-primary/75 shrink-0" />;
 };
 
 export const Notes: React.FC = () => {
@@ -542,6 +552,77 @@ export const Notes: React.FC = () => {
 
             {/* Scrollable Dialog Content Body */}
             <div className="flex-1 overflow-y-auto pr-2 py-1 space-y-6 select-text scrollbar-thin">
+              {/* Thumbnail / File Icon Preview */}
+              <div className="flex justify-center border-b border-border/50 pb-4">
+                {selectedNote.thumbnailUrl ? (
+                  <div 
+                    className={`w-full max-w-xs h-32 bg-accent/20 rounded-xl overflow-hidden border border-border flex items-center justify-center shadow-sm relative group ${
+                      (selectedNote.fileUrl || (selectedNote as any).downloadUrl) ? 'cursor-pointer transition-all duration-200 hover:scale-[1.01] hover:opacity-90' : ''
+                    }`}
+                    onClick={() => {
+                      const url = selectedNote.fileUrl || (selectedNote as any).downloadUrl;
+                      if (url) {
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      }
+                    }}
+                    role={(selectedNote.fileUrl || (selectedNote as any).downloadUrl) ? 'button' : undefined}
+                    tabIndex={(selectedNote.fileUrl || (selectedNote as any).downloadUrl) ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        const url = selectedNote.fileUrl || (selectedNote as any).downloadUrl;
+                        if (url) {
+                          e.preventDefault();
+                          window.open(url, "_blank", "noopener,noreferrer");
+                        }
+                      }
+                    }}
+                  >
+                    <img src={selectedNote.thumbnailUrl} alt="Preview thumbnail" className="w-full h-full object-cover group-hover:brightness-110 transition-all duration-200" />
+                    {(selectedNote.fileUrl || (selectedNote as any).downloadUrl) && (
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-1.5 text-white font-semibold text-xs rounded-xl">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open Document
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div 
+                    className={`w-full max-w-xs h-24 bg-accent/15 rounded-xl border border-border flex items-center justify-center gap-3 shadow-inner relative group ${
+                      (selectedNote.fileUrl || (selectedNote as any).downloadUrl) ? 'cursor-pointer transition-all duration-200 hover:scale-[1.01] hover:opacity-90' : ''
+                    }`}
+                    onClick={() => {
+                      const url = selectedNote.fileUrl || (selectedNote as any).downloadUrl;
+                      if (url) {
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      }
+                    }}
+                    role={(selectedNote.fileUrl || (selectedNote as any).downloadUrl) ? 'button' : undefined}
+                    tabIndex={(selectedNote.fileUrl || (selectedNote as any).downloadUrl) ? 0 : undefined}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        const url = selectedNote.fileUrl || (selectedNote as any).downloadUrl;
+                        if (url) {
+                          e.preventDefault();
+                          window.open(url, "_blank", "noopener,noreferrer");
+                        }
+                      }
+                    }}
+                  >
+                    {getFileIcon(selectedNote.mimeType)}
+                    <div className="text-left">
+                      <span className="text-xs font-bold text-foreground block">Reference File</span>
+                      <span className="text-[10px] text-muted-foreground uppercase">{selectedNote.fileExtension || 'PDF'} format</span>
+                    </div>
+                    {(selectedNote.fileUrl || (selectedNote as any).downloadUrl) && (
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-1.5 text-white font-semibold text-xs rounded-xl">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open Document
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* File Information and Academic Information Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 

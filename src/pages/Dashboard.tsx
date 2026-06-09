@@ -450,7 +450,18 @@ export const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
           
           {/* Notes Breakdown */}
-          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+          <Card 
+            className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-200 p-5 flex flex-col justify-between cursor-pointer hover:-translate-y-1 hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/10"
+            onClick={() => navigate('/notes')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/notes');
+              }
+            }}
+          >
             <div className="flex items-center justify-between pb-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Notes
@@ -476,7 +487,18 @@ export const Dashboard: React.FC = () => {
           </Card>
 
           {/* Assignments Breakdown */}
-          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+          <Card 
+            className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-200 p-5 flex flex-col justify-between cursor-pointer hover:-translate-y-1 hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/10"
+            onClick={() => navigate('/assignments')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/assignments');
+              }
+            }}
+          >
             <div className="flex items-center justify-between pb-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Assignments
@@ -502,7 +524,18 @@ export const Dashboard: React.FC = () => {
           </Card>
 
           {/* PYQs Breakdown */}
-          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+          <Card 
+            className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-200 p-5 flex flex-col justify-between cursor-pointer hover:-translate-y-1 hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/10"
+            onClick={() => navigate('/pyqs')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/pyqs');
+              }
+            }}
+          >
             <div className="flex items-center justify-between pb-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 PYQs
@@ -528,7 +561,18 @@ export const Dashboard: React.FC = () => {
           </Card>
 
           {/* Cheatsheets Breakdown */}
-          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+          <Card 
+            className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-200 p-5 flex flex-col justify-between cursor-pointer hover:-translate-y-1 hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/10"
+            onClick={() => navigate('/cheatsheets')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/cheatsheets');
+              }
+            }}
+          >
             <div className="flex items-center justify-between pb-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Cheat Sheets
@@ -554,7 +598,18 @@ export const Dashboard: React.FC = () => {
           </Card>
 
           {/* Videos Breakdown */}
-          <Card className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-300 p-5 flex flex-col justify-between">
+          <Card 
+            className="border-border bg-card/60 backdrop-blur-sm hover:shadow-premium-hover transition-all duration-200 p-5 flex flex-col justify-between cursor-pointer hover:-translate-y-1 hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/10"
+            onClick={() => navigate('/videos')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/videos');
+              }
+            }}
+          >
             <div className="flex items-center justify-between pb-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Videos

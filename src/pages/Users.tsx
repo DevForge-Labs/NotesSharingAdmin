@@ -50,6 +50,33 @@ interface FirestoreUser {
   createdAt?: any; // Timestamp or string/number
 }
 
+const getBranchInitials = (branch?: string): string => {
+  if (!branch) return '—';
+  const clean = branch.trim().toLowerCase();
+  
+  if (clean.includes('computer science engineering') || clean === 'cse') return 'CSE';
+  if (clean.includes('computer science') || clean === 'cs') return 'CS';
+  if (clean.includes('mechanical engineering') || clean === 'me' || clean === 'mechanical') return 'ME';
+  if (clean.includes('electrical engineering') || clean === 'ee') return 'EE';
+  if (clean.includes('electronics engineering') || clean === 'ece' || clean === 'electronics' || clean.includes('electronics & communication') || clean === 'ec') return 'EC';
+  if (clean.includes('civil engineering') || clean === 'ce' || clean === 'civil') return 'CE';
+  if (clean.includes('information technology') || clean === 'it') return 'IT';
+
+  // Abbreviation fallback
+  const words = branch.trim().split(/\s+/).filter(Boolean);
+  if (words.length > 1) {
+    return words.map(w => w[0].toUpperCase()).join('');
+  }
+  return branch.substring(0, 3).toUpperCase();
+};
+
+const getSemesterNumber = (semester?: string): string => {
+  if (!semester) return '—';
+  const clean = semester.trim();
+  const match = clean.match(/\d+/);
+  return match ? match[0] : clean;
+};
+
 interface ToastState {
   message: string | null;
   type: 'success' | 'info' | 'error';
@@ -349,10 +376,10 @@ export const Users: React.FC = () => {
                     <th className="p-4 w-12">Avatar</th>
                     <th className="p-4">Name</th>
                     <th className="p-4">Email</th>
-                    <th className="p-4">Branch</th>
-                    <th className="p-4">Semester</th>
+                    <th className="p-4 w-24">Branch</th>
+                    <th className="p-4 w-16 text-center">Sem</th>
                     <th className="p-4">Role</th>
-                    <th className="p-4">Contributor Level</th>
+                    <th className="p-4 w-24 text-center">Level</th>
                     <th className="p-4 text-center">Uploads</th>
                     <th className="p-4">Joined Date</th>
                     <th className="p-4 text-right">Action</th>
@@ -360,7 +387,11 @@ export const Users: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-border text-sm whitespace-nowrap">
                   {filteredUsers.map((user) => (
-                    <tr key={user.uid} className="hover:bg-accent/20 transition-colors duration-150">
+                    <tr 
+                      key={user.uid} 
+                      className="hover:bg-accent/30 cursor-pointer transition-colors"
+                      onClick={() => handleOpenDetails(user)}
+                    >
                       <td className="p-4">
                         <UserAvatar 
                           src={user.profileImageUrl} 
@@ -374,11 +405,11 @@ export const Users: React.FC = () => {
                       <td className="p-4 text-muted-foreground whitespace-nowrap">
                         {renderField(user.email, 'Email')}
                       </td>
-                      <td className="p-4 whitespace-nowrap">
-                        {renderField(user.branch, 'Branch')}
+                      <td className="p-4 w-24 whitespace-nowrap font-medium text-foreground">
+                        {user.branch ? getBranchInitials(user.branch) : <span className="text-muted-foreground/50 italic text-xs">—</span>}
                       </td>
-                      <td className="p-4 whitespace-nowrap">
-                        {renderField(user.semester, 'Semester')}
+                      <td className="p-4 w-16 text-center whitespace-nowrap font-medium text-foreground">
+                        {getSemesterNumber(user.semester)}
                       </td>
                       <td className="p-4 whitespace-nowrap">
                         {user.role ? (
@@ -389,9 +420,9 @@ export const Users: React.FC = () => {
                           <span className="text-muted-foreground/50 italic text-xs">—</span>
                         )}
                       </td>
-                      <td className="p-4 whitespace-nowrap">
+                      <td className="p-4 w-24 text-center whitespace-nowrap">
                         {user.contributorLevel ? (
-                          <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/25 hover:bg-amber-500/20">
+                          <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/25 hover:bg-amber-500/20 mx-auto">
                             {user.contributorLevel}
                           </Badge>
                         ) : (
@@ -409,7 +440,10 @@ export const Users: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
-                          onClick={() => handleOpenDetails(user)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetails(user);
+                          }}
                         >
                           <Eye className="h-3.5 w-3.5" /> View
                         </Button>
@@ -510,7 +544,13 @@ export const Users: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-muted-foreground block text-[9px] uppercase tracking-wider font-semibold">Semester</span>
-                      <span className="font-semibold text-foreground">{renderField(selectedUser.semester)}</span>
+                      <span className="font-semibold text-foreground">
+                        {selectedUser.semester ? (
+                          selectedUser.semester.toLowerCase().includes('semester') 
+                            ? selectedUser.semester.replace(/semester/i, 'Sem') 
+                            : `Sem ${getSemesterNumber(selectedUser.semester)}`
+                        ) : '—'}
+                      </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
