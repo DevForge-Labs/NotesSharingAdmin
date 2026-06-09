@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { PyqsMassUploadDialog } from '@/components/PyqsMassUploadDialog';
+import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 import { 
   Search, 
   Eye, 
@@ -64,6 +65,7 @@ export const Pyqs: React.FC = () => {
   const [selectedPyq, setSelectedPyq] = useState<PyqItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState<boolean>(false);
+  const [isAdminRemoveOpen, setIsAdminRemoveOpen] = useState<boolean>(false);
   
   // Search and Sort states
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,11 +112,23 @@ export const Pyqs: React.FC = () => {
     fetchPyqs();
   }, []);
 
-  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast(prev => prev.message === message ? { ...prev, message: null } : prev);
-    }, 3000);
+  const showToast = (
+    messageOrOptions: string | { title?: string; description?: string; variant?: string },
+    type: 'success' | 'info' | 'error' = 'success'
+  ) => {
+    if (typeof messageOrOptions === 'object') {
+      const msg = `${messageOrOptions.title ? `${messageOrOptions.title}: ` : ''}${messageOrOptions.description || ''}`;
+      const t = messageOrOptions.variant === 'destructive' ? 'error' : 'success';
+      setToast({ message: msg, type: t });
+      setTimeout(() => {
+        setToast(prev => prev.message === msg ? { ...prev, message: null } : prev);
+      }, 3000);
+    } else {
+      setToast({ message: messageOrOptions, type });
+      setTimeout(() => {
+        setToast(prev => prev.message === messageOrOptions ? { ...prev, message: null } : prev);
+      }, 3000);
+    }
   };
 
   const handleCopyText = (text: string) => {
@@ -369,7 +383,11 @@ export const Pyqs: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-border text-sm whitespace-nowrap">
                   {sortedPyqs.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-accent/20 transition-colors duration-150">
+                    <tr 
+                      key={item.id} 
+                      className="hover:bg-accent/30 cursor-pointer transition-colors"
+                      onClick={() => handleOpenDetails(item)}
+                    >
                       <td className="p-4 font-semibold text-xs text-muted-foreground">
                         {index + 1}
                       </td>
@@ -408,7 +426,10 @@ export const Pyqs: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
-                          onClick={() => handleOpenDetails(item)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetails(item);
+                          }}
                         >
                           <Eye className="h-3.5 w-3.5" /> View
                         </Button>
@@ -585,6 +606,21 @@ export const Pyqs: React.FC = () => {
                   </Button>
                 </div>
               </div>
+
+              {/* Admin Actions Section */}
+              <div className="space-y-2.5 pt-4 border-t border-border/60">
+                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> Administrative Actions
+                </h4>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white h-10 w-full"
+                  onClick={() => setIsAdminRemoveOpen(true)}
+                >
+                  Delete PYQ
+                </Button>
+              </div>
             </div>
 
             {/* Sticky Action Footer Section */}
@@ -596,6 +632,20 @@ export const Pyqs: React.FC = () => {
           </div>
         )}
       </Dialog>
+
+      {selectedPyq && (
+        <AdminRemoveDialog
+          isOpen={isAdminRemoveOpen}
+          onClose={() => setIsAdminRemoveOpen(false)}
+          onSuccess={() => {
+            setIsDetailOpen(false);
+            fetchPyqs();
+          }}
+          showToast={showToast}
+          resource={selectedPyq}
+          resourceType="pyqs"
+        />
+      )}
 
       {/* Pyqs Mass Upload Dialog */}
       <PyqsMassUploadDialog

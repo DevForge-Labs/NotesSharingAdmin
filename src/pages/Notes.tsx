@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { NotesMassUploadDialog } from '@/components/NotesMassUploadDialog';
+import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 import {
   Search,
   Check,
@@ -105,18 +106,14 @@ export const Notes: React.FC = () => {
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [copiedType, setCopiedType] = useState<'fileUrl' | 'docId' | 'uploaderId' | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState<boolean>(false);
+  const [isAdminRemoveOpen, setIsAdminRemoveOpen] = useState<boolean>(false);
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'All' | 'Notes' | 'Assignment' | 'PYQ' | 'Cheat Sheet'>('All');
   const [sortBy, setSortBy] = useState<'Latest' | 'Downloads' | 'Views'>('Latest');
 
-  // Confirmation dialog states
-  const [confirmAction, setConfirmAction] = useState<{
-    type: 'verify' | 'reject' | 'delete';
-    label: string;
-    description: string;
-  } | null>(null);
+
 
   // Toast notifications state
   const [toast, setToast] = useState<ToastState>({ message: null, type: 'success' });
@@ -168,11 +165,23 @@ export const Notes: React.FC = () => {
     fetchNotes();
   }, []);
 
-  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast(prev => prev.message === message ? { ...prev, message: null } : prev);
-    }, 3000);
+  const showToast = (
+    messageOrOptions: string | { title?: string; description?: string; variant?: string },
+    type: 'success' | 'info' | 'error' = 'success'
+  ) => {
+    if (typeof messageOrOptions === 'object') {
+      const msg = `${messageOrOptions.title ? `${messageOrOptions.title}: ` : ''}${messageOrOptions.description || ''}`;
+      const t = messageOrOptions.variant === 'destructive' ? 'error' : 'success';
+      setToast({ message: msg, type: t });
+      setTimeout(() => {
+        setToast(prev => prev.message === msg ? { ...prev, message: null } : prev);
+      }, 3000);
+    } else {
+      setToast({ message: messageOrOptions, type });
+      setTimeout(() => {
+        setToast(prev => prev.message === messageOrOptions ? { ...prev, message: null } : prev);
+      }, 3000);
+    }
   };
 
   const handleCopyText = (text: string, type: 'fileUrl' | 'docId' | 'uploaderId') => {
@@ -186,34 +195,7 @@ export const Notes: React.FC = () => {
     });
   };
 
-  const handleTriggerAction = (type: 'verify' | 'reject' | 'delete') => {
-    const labels = {
-      verify: 'Verify Document',
-      reject: 'Reject Document',
-      delete: 'Delete Document'
-    };
-    const descriptions = {
-      verify: `Are you sure you want to verify "${selectedNote?.title || 'this document'}"? This makes the resource verified and fully visible for download.`,
-      reject: `Are you sure you want to reject "${selectedNote?.title || 'this document'}"? This flags the resource and restricts download access.`,
-      delete: `Are you sure you want to permanently delete "${selectedNote?.title || 'this document'}"? This clears all document metadata from the catalog.`
-    };
-    setConfirmAction({
-      type,
-      label: labels[type],
-      description: descriptions[type]
-    });
-  };
 
-  const handleConfirmAction = () => {
-    if (!confirmAction) return;
-    const messages = {
-      verify: 'Document verified (Demo)',
-      reject: 'Document rejected (Demo)',
-      delete: 'Document deleted (Demo)'
-    };
-    showToast(messages[confirmAction.type], 'success');
-    setConfirmAction(null);
-  };
 
   const handleOpenDetails = (note: NoteItem) => {
     setSelectedNote(note);
@@ -452,7 +434,11 @@ export const Notes: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-border text-sm whitespace-nowrap">
                   {sortedNotes.map((note, index) => (
-                    <tr key={note.id} className="hover:bg-accent/20 transition-colors duration-150">
+                    <tr 
+                      key={note.id} 
+                      className="hover:bg-accent/30 cursor-pointer transition-colors"
+                      onClick={() => handleOpenDetails(note)}
+                    >
                       <td className="p-4 font-semibold text-xs text-muted-foreground">
                         {index + 1}
                       </td>
@@ -485,7 +471,10 @@ export const Notes: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
-                          onClick={() => handleOpenDetails(note)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetails(note);
+                          }}
                         >
                           <Eye className="h-3.5 w-3.5" /> View
                         </Button>
@@ -750,43 +739,19 @@ export const Notes: React.FC = () => {
                 </div>
               </div>
 
-              {/* Admin Actions Section (Demo Only) */}
+              {/* Admin Actions Section */}
               <div className="space-y-2.5 pt-4 border-t border-border/60">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Shield className="h-3.5 w-3.5" /> Administrative Actions (Demo)
-                  </h4>
-                  <span className="text-[9px] text-muted-foreground/80 italic font-medium">
-                    Demo Action — No database changes will occur.
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-3">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="text-xs font-bold border-emerald-500/35 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 h-10 w-full"
-                    onClick={() => handleTriggerAction('verify')}
-                  >
-                    Verify Document
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="text-xs font-bold border-orange-500/35 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 h-10 w-full"
-                    onClick={() => handleTriggerAction('reject')}
-                  >
-                    Reject Document
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white h-10 w-full"
-                    onClick={() => handleTriggerAction('delete')}
-                  >
-                    Delete Document
-                  </Button>
-                </div>
+                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> Administrative Actions
+                </h4>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white h-10 w-full"
+                  onClick={() => setIsAdminRemoveOpen(true)}
+                >
+                  Delete Note
+                </Button>
               </div>
 
             </div>
@@ -801,40 +766,7 @@ export const Notes: React.FC = () => {
         )}
       </Dialog>
 
-      {/* Confirmation Dialog Sub-Modal */}
-      <Dialog isOpen={confirmAction !== null} onClose={() => setConfirmAction(null)}>
-        {confirmAction && (
-          <div className="space-y-4">
-            <DialogHeader className="text-left">
-              <div className="flex items-center gap-2 text-orange-500 mb-1">
-                <AlertTriangle className="h-5 w-5" />
-                <DialogTitle className="text-lg font-bold">Confirm Administrative Action</DialogTitle>
-              </div>
-              <DialogDescription className="text-sm mt-1.5 text-muted-foreground leading-relaxed">
-                {confirmAction.description}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="bg-orange-500/10 border border-orange-500/25 rounded-xl p-3 text-[11px] text-orange-700 dark:text-orange-400">
-              <span className="font-bold">Demo Notice:</span> No database writes or metadata updates will be dispatched to Firestore.
-            </div>
-            
-            <DialogFooter className="mt-4">
-              <Button variant="ghost" size="sm" onClick={() => setConfirmAction(null)}>
-                Cancel
-              </Button>
-              <Button 
-                size="sm" 
-                variant={confirmAction.type === 'delete' ? 'destructive' : 'default'} 
-                onClick={handleConfirmAction}
-                className={confirmAction.type === 'verify' ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0' : confirmAction.type === 'reject' ? 'bg-orange-500 hover:bg-orange-600 text-white border-0' : ''}
-              >
-                Confirm
-              </Button>
-            </DialogFooter>
-          </div>
-        )}
-      </Dialog>
+
 
       {/* Mass Upload Dialog */}
       <NotesMassUploadDialog
@@ -843,6 +775,20 @@ export const Notes: React.FC = () => {
         onUploadSuccess={fetchNotes}
         showToast={showToast}
       />
+
+      {selectedNote && (
+        <AdminRemoveDialog
+          isOpen={isAdminRemoveOpen}
+          onClose={() => setIsAdminRemoveOpen(false)}
+          onSuccess={() => {
+            setIsDetailOpen(false);
+            fetchNotes();
+          }}
+          showToast={showToast}
+          resource={selectedNote}
+          resourceType="notes"
+        />
+      )}
 
       {/* Premium Toast/Snackbar Notification */}
       {toast.message && (

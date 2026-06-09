@@ -25,6 +25,7 @@ import {
   Upload
 } from 'lucide-react';
 import { VideosMassUploadDialog } from '@/components/VideosMassUploadDialog';
+import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 
 interface VideoItem {
   id: string;
@@ -62,6 +63,7 @@ export const Videos: React.FC = () => {
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState<boolean>(false);
+  const [isAdminRemoveOpen, setIsAdminRemoveOpen] = useState<boolean>(false);
   
   // Search and Sort states
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,11 +110,23 @@ export const Videos: React.FC = () => {
     fetchVideos();
   }, []);
 
-  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast(prev => prev.message === message ? { ...prev, message: null } : prev);
-    }, 3000);
+  const showToast = (
+    messageOrOptions: string | { title?: string; description?: string; variant?: string },
+    type: 'success' | 'info' | 'error' = 'success'
+  ) => {
+    if (typeof messageOrOptions === 'object') {
+      const msg = `${messageOrOptions.title ? `${messageOrOptions.title}: ` : ''}${messageOrOptions.description || ''}`;
+      const t = messageOrOptions.variant === 'destructive' ? 'error' : 'success';
+      setToast({ message: msg, type: t });
+      setTimeout(() => {
+        setToast(prev => prev.message === msg ? { ...prev, message: null } : prev);
+      }, 3000);
+    } else {
+      setToast({ message: messageOrOptions, type });
+      setTimeout(() => {
+        setToast(prev => prev.message === messageOrOptions ? { ...prev, message: null } : prev);
+      }, 3000);
+    }
   };
 
   const handleCopyText = (text: string) => {
@@ -230,6 +244,14 @@ export const Videos: React.FC = () => {
   const handleOpenDetails = (item: VideoItem) => {
     setSelectedVideo(item);
     setIsDetailOpen(true);
+  };
+
+  const handleOpenVideoLink = () => {
+    if (selectedVideo?.youtubeUrl) {
+      window.open(selectedVideo.youtubeUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      showToast("No YouTube URL available", "error");
+    }
   };
 
   return (
@@ -354,7 +376,11 @@ export const Videos: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-border text-sm whitespace-nowrap">
                   {sortedVideos.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-accent/20 transition-colors duration-150">
+                    <tr 
+                      key={item.id} 
+                      className="hover:bg-accent/30 cursor-pointer transition-colors"
+                      onClick={() => handleOpenDetails(item)}
+                    >
                       <td className="p-4 font-semibold text-xs text-muted-foreground">
                         {index + 1}
                       </td>
@@ -392,7 +418,10 @@ export const Videos: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
-                          onClick={() => handleOpenDetails(item)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetails(item);
+                          }}
                         >
                           <Eye className="h-3.5 w-3.5" /> View
                         </Button>
@@ -439,11 +468,26 @@ export const Videos: React.FC = () => {
               {/* Thumbnail Preview */}
               <div className="flex justify-center border-b border-border/50 pb-4">
                 {selectedVideo.youtubeThumbnailUrl || selectedVideo.thumbnailUrl ? (
-                  <div className="w-full max-w-md h-48 bg-accent/20 rounded-xl overflow-hidden border border-border flex items-center justify-center shadow-sm relative group">
-                    <img src={selectedVideo.youtubeThumbnailUrl || selectedVideo.thumbnailUrl} alt="Video thumbnail preview" className="w-full h-full object-cover" />
+                  <div 
+                    className="w-full max-w-md h-48 bg-accent/20 rounded-xl overflow-hidden border border-border flex items-center justify-center shadow-sm relative group cursor-pointer"
+                    onClick={handleOpenVideoLink}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleOpenVideoLink();
+                      }
+                    }}
+                  >
+                    <img 
+                      src={selectedVideo.youtubeThumbnailUrl || selectedVideo.thumbnailUrl} 
+                      alt="Video thumbnail preview" 
+                      className="w-full h-full object-cover group-hover:brightness-110 transition-all duration-200" 
+                    />
                     {/* Visual play overlay mockup */}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/50 transition-all pointer-events-none">
-                      <div className="h-14 w-14 rounded-full bg-red-600 flex items-center justify-center shadow-lg border border-red-500">
+                      <div className="h-14 w-14 rounded-full bg-red-600 flex items-center justify-center shadow-lg border border-red-500 group-hover:scale-110 transition-transform duration-200">
                         <div className="w-0 h-0 border-t-8 border-t-transparent border-l-[14px] border-l-white border-b-8 border-b-transparent ml-1" />
                       </div>
                     </div>
@@ -577,6 +621,21 @@ export const Videos: React.FC = () => {
                   </Button>
                 </div>
               </div>
+
+              {/* Admin Actions Section */}
+              <div className="space-y-2.5 pt-4 border-t border-border/60">
+                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> Administrative Actions
+                </h4>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white h-10 w-full"
+                  onClick={() => setIsAdminRemoveOpen(true)}
+                >
+                  Delete Video
+                </Button>
+              </div>
             </div>
 
             {/* Sticky Action Footer Section */}
@@ -588,6 +647,20 @@ export const Videos: React.FC = () => {
           </div>
         )}
       </Dialog>
+
+      {selectedVideo && (
+        <AdminRemoveDialog
+          isOpen={isAdminRemoveOpen}
+          onClose={() => setIsAdminRemoveOpen(false)}
+          onSuccess={() => {
+            setIsDetailOpen(false);
+            fetchVideos();
+          }}
+          showToast={showToast}
+          resource={selectedVideo}
+          resourceType="videos"
+        />
+      )}
 
       {/* Videos Mass Upload Dialog */}
       <VideosMassUploadDialog
