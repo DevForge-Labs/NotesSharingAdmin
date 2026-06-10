@@ -24,13 +24,44 @@ export interface DeleteResourceParams {
     uploaderUid: string;
     fileUrl?: string;
     storagePath?: string;
+    storagePaths?: string[];
+    youtubeUrl?: string;
+    thumbnailUrl?: string;
+    youtubeResourceType?: string;
   };
+}
+
+function removeUndefined(obj: any): any {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  }
+  const newObj: any = {};
+  for (const key of Object.keys(obj)) {
+    if (obj[key] !== undefined) {
+      newObj[key] = removeUndefined(obj[key]);
+    }
+  }
+  return newObj;
 }
 
 export async function deleteResource(params: DeleteResourceParams): Promise<{ success: boolean; error?: any }> {
   try {
+    // Check whether any valid Firebase Storage path exists
+    const hasValidStoragePath = params.storagePaths.some(pathOrUrl => {
+      if (!pathOrUrl) return false;
+      if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+        return pathOrUrl.includes('firebasestorage.googleapis.com');
+      }
+      return true; // Relative path or gs:// URL
+    });
+
+    const storageDeletionRequired = hasValidStoragePath;
+
     // 1. Create deletion audit log in Firestore
-    const auditLog = {
+    const auditLog: any = {
       resourceId: params.resourceId,
       resourceType: params.resourceType,
       resourceTitle: params.resourceTitle,
@@ -43,37 +74,45 @@ export async function deleteResource(params: DeleteResourceParams): Promise<{ su
       deletionReason: params.deletionReason,
       customReason: params.customReason,
       deletedAt: Date.now(),
-      storagePaths: params.storagePaths,
       notificationSent: false,
       resourceSnapshot: params.resourceSnapshot,
     };
 
+    if (params.storagePaths && params.storagePaths.length > 0) {
+      auditLog.storagePaths = params.storagePaths;
+    }
+
+    // Sanitize the entire audit log payload to remove undefined fields recursively
+    const sanitizedAuditLog = removeUndefined(auditLog);
+
     // This will throw if the write fails, preventing deletion
-    await addDoc(collection(db, 'admin_deletion_logs'), auditLog);
+    await addDoc(collection(db, 'admin_deletion_logs'), sanitizedAuditLog);
 
-    // 2. Delete associated files from Storage
-    for (const pathOrUrl of params.storagePaths) {
-      if (!pathOrUrl) continue;
+    // 2. Delete associated files from Storage if required
+    if (storageDeletionRequired) {
+      for (const pathOrUrl of params.storagePaths) {
+        if (!pathOrUrl) continue;
 
-      try {
-        let storageRef;
-        if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
-          if (pathOrUrl.includes('firebasestorage.googleapis.com')) {
-            storageRef = ref(storage, pathOrUrl);
+        try {
+          let storageRef;
+          if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+            if (pathOrUrl.includes('firebasestorage.googleapis.com')) {
+              storageRef = ref(storage, pathOrUrl);
+            } else {
+              // Skip external links (e.g. YouTube URLs, external thumbnails)
+              continue;
+            }
           } else {
-            // Skip external links (e.g. YouTube URLs, external thumbnails)
-            continue;
+            // Relative path or gs:// URL
+            storageRef = ref(storage, pathOrUrl);
           }
-        } else {
-          // Relative path or gs:// URL
-          storageRef = ref(storage, pathOrUrl);
-        }
 
-        if (storageRef) {
-          await deleteObject(storageRef);
+          if (storageRef) {
+            await deleteObject(storageRef);
+          }
+        } catch (error) {
+          console.warn('Storage file already missing or failed to delete:', pathOrUrl, error);
         }
-      } catch (error) {
-        console.warn('Storage file already missing or failed to delete:', pathOrUrl, error);
       }
     }
 
@@ -86,3 +125,4 @@ export async function deleteResource(params: DeleteResourceParams): Promise<{ su
     return { success: false, error };
   }
 }
+

@@ -68,16 +68,26 @@ export const AdminRemoveDialog: React.FC<AdminRemoveDialogProps> = ({
     const uploaderFcmToken = resource.uploaderFcmToken || null;
 
     // 3. Build snapshot
-    const resourceSnapshot = {
+    const resourceSnapshot: any = {
       title: resource.title || 'Untitled',
       subject: resource.displaySubject || resource.subject || '',
       branch: resource.branch || '',
       semester: resource.semester || '',
       uploaderName,
       uploaderUid,
-      fileUrl: resource.fileUrl || resource.downloadUrl || undefined,
-      storagePath: resource.storagePath || undefined
     };
+
+    if (resourceType === 'videos') {
+      resourceSnapshot.youtubeUrl = resource.youtubeUrl || undefined;
+      resourceSnapshot.thumbnailUrl = resource.thumbnailUrl || resource.youtubeThumbnailUrl || undefined;
+      resourceSnapshot.youtubeResourceType = resource.youtubeResourceType || undefined;
+    } else {
+      resourceSnapshot.fileUrl = resource.fileUrl || resource.downloadUrl || undefined;
+      resourceSnapshot.storagePath = resource.storagePath || undefined;
+    }
+
+    const finalDeletionReason = reason === 'Other' ? customReason.trim() : reason;
+    const finalCustomReason = reason === 'Other' ? customReason.trim() : '';
 
     const result = await deleteResource({
       resourceId: resource.id,
@@ -89,8 +99,8 @@ export const AdminRemoveDialog: React.FC<AdminRemoveDialogProps> = ({
       uploaderFcmToken,
       deletedByUid: user.uid,
       deletedByName: user.displayName || 'Admin',
-      deletionReason: reason,
-      customReason: reason === 'Other' ? customReason.trim() : '',
+      deletionReason: finalDeletionReason,
+      customReason: finalCustomReason,
       storagePaths,
       resourceSnapshot
     });
