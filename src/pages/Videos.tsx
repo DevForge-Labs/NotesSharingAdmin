@@ -22,10 +22,13 @@ import {
   Sparkles,
   AlertTriangle,
   Video,
-  Upload
+  Upload,
+  Trash2
 } from 'lucide-react';
 import { VideosMassUploadDialog } from '@/components/VideosMassUploadDialog';
 import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
+import { BulkDeleteDialog } from '@/components/BulkDeleteDialog';
+import { cn } from '@/lib/utils';
 
 interface VideoItem {
   id: string;
@@ -64,6 +67,8 @@ export const Videos: React.FC = () => {
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState<boolean>(false);
   const [isAdminRemoveOpen, setIsAdminRemoveOpen] = useState<boolean>(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState<boolean>(false);
   
   // Search and Sort states
   const [searchQuery, setSearchQuery] = useState('');
@@ -241,6 +246,18 @@ export const Videos: React.FC = () => {
     return 0;
   });
 
+  const allSelected = sortedVideos.length > 0 && sortedVideos.every(item => selectedIds.includes(item.id));
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      const sortedIds = sortedVideos.map(item => item.id);
+      setSelectedIds(prev => prev.filter(id => !sortedIds.includes(id)));
+    } else {
+      const newIds = new Set([...selectedIds, ...sortedVideos.map(item => item.id)]);
+      setSelectedIds(Array.from(newIds));
+    }
+  };
+
   const handleOpenDetails = (item: VideoItem) => {
     setSelectedVideo(item);
     setIsDetailOpen(true);
@@ -265,12 +282,26 @@ export const Videos: React.FC = () => {
             Manage, review, and inspect student-submitted educational video resources.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={() => setIsUploadDialogOpen(true)} 
+            className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white shadow-[0_0_20px_rgba(139,92,246,0.18)] hover:shadow-[0_0_25px_rgba(139,92,246,0.28)] transition-all duration-200 border-0"
+          >
+            <Upload className="h-3.5 w-3.5" /> Upload
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setIsBulkDeleteOpen(true)}
+            disabled={selectedIds.length === 0}
+            className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 disabled:bg-red-600/50 text-white shadow-[0_0_20px_rgba(220,38,38,0.18)] transition-all duration-200 border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete Selected{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
+          </Button>
           <Button variant="outline" size="sm" onClick={fetchVideos} className="flex items-center gap-1.5 bg-card">
             <RefreshCw className="h-3.5 w-3.5" /> Reload Catalog
-          </Button>
-          <Button variant="default" size="sm" onClick={() => setIsUploadDialogOpen(true)} className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white shadow-[0_0_20px_rgba(139,92,246,0.18)] hover:shadow-[0_0_25px_rgba(139,92,246,0.28)] transition-all duration-200 border-0">
-            <Upload className="h-3.5 w-3.5" /> Upload
           </Button>
         </div>
       </div>
@@ -361,6 +392,14 @@ export const Videos: React.FC = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-accent/50 text-xs font-semibold text-foreground/90 uppercase tracking-wider whitespace-nowrap">
+                    <th className="p-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={handleSelectAll}
+                        className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
+                      />
+                    </th>
                     <th className="p-4 w-16">S.NO.</th>
                     <th className="p-4 w-[25%]">TITLE</th>
                     <th className="p-4">SUBJECT</th>
@@ -375,59 +414,79 @@ export const Videos: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-sm whitespace-nowrap">
-                  {sortedVideos.map((item, index) => (
-                    <tr 
-                      key={item.id} 
-                      className="hover:bg-accent/30 cursor-pointer transition-colors"
-                      onClick={() => handleOpenDetails(item)}
-                    >
-                      <td className="p-4 font-semibold text-xs text-muted-foreground">
-                        {index + 1}
-                      </td>
-                      <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={item.title}>
-                        {item.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
-                      </td>
-                      <td className="p-4 text-muted-foreground font-medium">
-                        {item.displaySubject || item.subject || <span className="text-muted-foreground/50 italic">—</span>}
-                      </td>
-                      <td className="p-4 text-muted-foreground font-medium">
-                        {item.channelName || <span className="text-muted-foreground/50 italic font-normal">—</span>}
-                      </td>
-                      <td className="p-4">
-                        <Badge variant="secondary" className="font-semibold text-[10px]">
-                          {formatResourceType(item.youtubeResourceType)}
-                        </Badge>
-                      </td>
-                      <td className="p-4 font-medium">
-                        {item.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
-                      </td>
-                      <td className="p-4">
-                        {getBranchInitials(item.branch)}
-                      </td>
-                      <td className="p-4">
-                        {getSemesterNumber(item.semester)}
-                      </td>
-                      <td className="p-4 text-center font-bold">
-                        {(item.upvotes !== undefined ? item.upvotes : (item.likesCount || 0)).toLocaleString()}
-                      </td>
-                      <td className="p-4 text-center font-bold">
-                        {(item.viewsCount || 0).toLocaleString()}
-                      </td>
-                      <td className="p-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDetails(item);
-                          }}
-                        >
-                          <Eye className="h-3.5 w-3.5" /> View
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedVideos.map((item, index) => {
+                    const isSelected = selectedIds.includes(item.id);
+                    return (
+                      <tr 
+                        key={item.id} 
+                        className={cn(
+                          "hover:bg-accent/30 cursor-pointer transition-colors",
+                          isSelected && "bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/15"
+                        )}
+                        onClick={() => handleOpenDetails(item)}
+                      >
+                        <td className="p-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setSelectedIds(prev =>
+                                prev.includes(item.id)
+                                  ? prev.filter(id => id !== item.id)
+                                  : [...prev, item.id]
+                              );
+                            }}
+                            className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
+                          />
+                        </td>
+                        <td className="p-4 font-semibold text-xs text-muted-foreground">
+                          {index + 1}
+                        </td>
+                        <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={item.title}>
+                          {item.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
+                        </td>
+                        <td className="p-4 text-muted-foreground font-medium">
+                          {item.displaySubject || item.subject || <span className="text-muted-foreground/50 italic">—</span>}
+                        </td>
+                        <td className="p-4 text-muted-foreground font-medium">
+                          {item.channelName || <span className="text-muted-foreground/50 italic font-normal">—</span>}
+                        </td>
+                        <td className="p-4">
+                          <Badge variant="secondary" className="font-semibold text-[10px]">
+                            {formatResourceType(item.youtubeResourceType)}
+                          </Badge>
+                        </td>
+                        <td className="p-4 font-medium">
+                          {item.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
+                        </td>
+                        <td className="p-4">
+                          {getBranchInitials(item.branch)}
+                        </td>
+                        <td className="p-4">
+                          {getSemesterNumber(item.semester)}
+                        </td>
+                        <td className="p-4 text-center font-bold">
+                          {(item.upvotes !== undefined ? item.upvotes : (item.likesCount || 0)).toLocaleString()}
+                        </td>
+                        <td className="p-4 text-center font-bold">
+                          {(item.viewsCount || 0).toLocaleString()}
+                        </td>
+                        <td className="p-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDetails(item);
+                            }}
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -661,6 +720,18 @@ export const Videos: React.FC = () => {
           resourceType="videos"
         />
       )}
+
+      <BulkDeleteDialog
+        isOpen={isBulkDeleteOpen}
+        onClose={() => setIsBulkDeleteOpen(false)}
+        onSuccess={() => {
+          setSelectedIds([]);
+          fetchVideos();
+        }}
+        showToast={showToast}
+        resources={videos.filter(v => selectedIds.includes(v.id))}
+        resourceType="videos"
+      />
 
       {/* Videos Mass Upload Dialog */}
       <VideosMassUploadDialog
