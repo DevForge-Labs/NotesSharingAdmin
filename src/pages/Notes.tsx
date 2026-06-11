@@ -121,6 +121,7 @@ export const Notes: React.FC = () => {
   const [isAdminRemoveOpen, setIsAdminRemoveOpen] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState<boolean>(false);
+  const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -356,15 +357,39 @@ export const Notes: React.FC = () => {
           >
             <Upload className="h-3.5 w-3.5" /> Upload
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setIsBulkDeleteOpen(true)}
-            disabled={selectedIds.length === 0}
-            className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 disabled:bg-red-600/50 text-white shadow-[0_0_20px_rgba(220,38,38,0.18)] transition-all duration-200 border-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Delete Selected{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
-          </Button>
+          {!isSelectionMode ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setIsSelectionMode(true)}
+              className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.18)] transition-all duration-200 border-0"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Bulk Delete
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setSelectedIds([]);
+                  setIsSelectionMode(false);
+                }}
+                className="flex items-center gap-1.5 bg-accent text-accent-foreground border border-border"
+              >
+                Exit Selection ({selectedIds.length} Selected)
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setIsBulkDeleteOpen(true)}
+                disabled={selectedIds.length === 0}
+                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 disabled:bg-red-600/50 text-white shadow-[0_0_20px_rgba(220,38,38,0.18)] transition-all duration-200 border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete Selected{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
+              </Button>
+            </>
+          )}
           <Button variant="outline" size="sm" onClick={fetchNotes} className="flex items-center gap-1.5 bg-card">
             <RefreshCw className="h-3.5 w-3.5" /> Reload Catalog
           </Button>
@@ -404,6 +429,14 @@ export const Notes: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Selection Mode Active Banner */}
+      {isSelectionMode && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl text-xs font-semibold animate-fade-in">
+          <AlertTriangle className="h-4 w-4 shrink-0 animate-pulse" />
+          <span>Selection Mode Active — Select resources to delete.</span>
+        </div>
+      )}
 
       {/* Table Section */}
       <Card className="border-border overflow-hidden shadow-premium">
@@ -460,14 +493,16 @@ export const Notes: React.FC = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-accent/50 text-xs font-semibold text-foreground/90 uppercase tracking-wider whitespace-nowrap">
-                    <th className="p-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={handleSelectAll}
-                        className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
-                      />
-                    </th>
+                    {isSelectionMode && (
+                      <th className="p-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={handleSelectAll}
+                          className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
+                        />
+                      </th>
+                    )}
                     <th className="p-4">S.NO</th>
                     <th className="p-4 w-[25%]">Title</th>
                     <th className="p-4">Subject</th>
@@ -488,24 +523,36 @@ export const Notes: React.FC = () => {
                         key={note.id} 
                         className={cn(
                           "hover:bg-accent/30 cursor-pointer transition-colors",
-                          isSelected && "bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/15"
+                          isSelectionMode && isSelected && "bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/15"
                         )}
-                        onClick={() => handleOpenDetails(note)}
+                        onClick={() => {
+                          if (isSelectionMode) {
+                            setSelectedIds(prev =>
+                              prev.includes(note.id)
+                                ? prev.filter(id => id !== note.id)
+                                : [...prev, note.id]
+                            );
+                          } else {
+                            handleOpenDetails(note);
+                          }
+                        }}
                       >
-                        <td className="p-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {
-                              setSelectedIds(prev =>
-                                prev.includes(note.id)
-                                  ? prev.filter(id => id !== note.id)
-                                  : [...prev, note.id]
-                              );
-                            }}
-                            className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
-                          />
-                        </td>
+                        {isSelectionMode && (
+                          <td className="p-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedIds(prev =>
+                                  prev.includes(note.id)
+                                    ? prev.filter(id => id !== note.id)
+                                    : [...prev, note.id]
+                                );
+                              }}
+                              className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
+                            />
+                          </td>
+                        )}
                         <td className="p-4 font-semibold text-xs text-muted-foreground">
                           {index + 1}
                         </td>
