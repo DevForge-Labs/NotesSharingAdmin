@@ -1,61 +1,170 @@
-# NotesSharingAdmin
+# 🛠️ Campus Pages Admin
 
-Admin Dashboard for NotesSharingAPP.
+<div align="center">
+
+### Administrative Dashboard for Campus Pages
+
+Manage users, content, academic resources, platform activity, and system operations from a centralized web dashboard.
+
+![Status](https://img.shields.io/badge/Status-Active%20Development-success)
+![Firebase](https://img.shields.io/badge/Backend-Firebase-yellow)
+![Dashboard](https://img.shields.io/badge/Platform-Web-blue)
+
+</div>
 
 ---
 
-# Branch Structure
+## ✨ Overview
 
-We use 3 branches:
+Campus Pages Admin is the internal administration portal used to manage the Campus Pages ecosystem.
+
+The dashboard provides moderation tools, content management capabilities, analytics, and platform monitoring functionality.
+
+---
+
+## 🎯 Core Responsibilities
+
+### 📚 Content Management
+
+* Review uploaded resources
+* Manage PDFs and study materials
+* Organize subject categories
+* Moderate user-generated content
+* Handle reported resources
+
+### 👥 User Management
+
+* Monitor contributor activity
+* Manage user accounts
+* Review user statistics
+* Track platform engagement
+
+### 📊 Analytics & Monitoring
+
+* Upload statistics
+* View analytics
+* Download analytics
+* Contributor insights
+* Platform growth tracking
+
+### ⚙️ Platform Administration
+
+* Manage featured content
+* Configure announcements
+* Control platform visibility
+* Monitor system health
+
+---
+
+## 🏗️ Project Structure
 
 ```text
-main      → Stable branch
-pratyush  → Pratyush's development branch
-apoorva   → Apoorva's development branch
+src/
+├── components/
+├── pages/
+├── services/
+├── hooks/
+├── utils/
+├── firebase/
+└── assets/
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+* Node.js (Latest LTS)
+* npm
+* Git
+
+### Installation
+
+```bash
+git clone https://github.com/<owner>/<repository>.git
+cd NotesSharingAdmin
+npm install
+```
+
+### Run Development Server
+
+```bash
+npm run dev
+```
+
+### Production Build
+
+```bash
+npm run build
+```
+
+---
+
+## 🔥 Backend Services
+
+The dashboard integrates with:
+
+* Firebase Authentication
+* Cloud Firestore
+* Firebase Storage
+* Firebase Functions
+
+---
+
+## 🌿 Branch Strategy
+
+### Branches
+
+```text
+main      → Production / Stable
+pratyush  → Development Branch
+apoorva   → Development Branch
 ```
 
 ### Rules
 
-* Never develop directly on `main`.
-* Pratyush works only on `pratyush`.
-* Apoorva works only on `apoorva`.
-* Only tested code should be merged into `main`.
+✅ Develop only on your branch
+
+✅ Test before merging
+
+✅ Keep main stable
+
+✅ Use Pull Requests
+
+❌ Do not commit directly to main
+
+❌ Do not force push to main
+
+❌ Do not merge untested code
 
 ---
 
-# Switching To Your Branch
+## 🔄 Daily Development Workflow
 
-## Pratyush
+### 1. Switch To Your Branch
 
 ```bash
 git checkout pratyush
 ```
 
-## Apoorva
+or
 
 ```bash
 git checkout apoorva
 ```
 
-Verify current branch:
+---
+
+### 2. Pull Latest Changes
 
 ```bash
-git branch
-```
-
-The active branch will have a `*`.
-
-Example:
-
-```text
-* pratyush
-  main
-  apoorva
+git pull
 ```
 
 ---
 
-# Making Changes & Pushing To Your Branch
+### 3. Make Changes
 
 After completing work:
 
@@ -65,159 +174,51 @@ git commit -m "Describe your changes"
 git push
 ```
 
-Example:
-
-```bash
-git add .
-git commit -m "Added upload management UI"
-git push
-```
-
 ---
 
-# Merging Changes Into Main
-
-After testing and verification:
-
-Switch to main:
-
-```bash
-git checkout main
-```
-
-Merge:
-
-```bash
-git merge pratyush
-```
-
-or
-
-```bash
-git merge apoorva
-```
-
-Push:
-
-```bash
-git push
-```
-
----
-
-# GitHub Pull Request Method (Recommended)
-
-1. Go to GitHub repository.
-2. Open Pull Requests.
-3. Click "New Pull Request".
-4. Select:
+### 4. Create Pull Request
 
 ```text
 Base Branch: main
-Compare Branch: pratyush
+Compare Branch: your_branch
 ```
 
-or
-
-```text
-Base Branch: main
-Compare Branch: apoorva
-```
-
-5. Review changes.
-6. Click "Merge Pull Request".
-7. Confirm Merge.
-
-This is the safest method.
+Review changes and merge only after testing.
 
 ---
 
-# Updating Main After GitHub Merge
+## 📈 Development Status
 
-After code has been merged into GitHub's `main`:
+🟢 Active Development
 
-```bash
-git checkout main
-git pull origin main
-```
+The dashboard is actively evolving alongside the Campus Pages Android application.
 
-This updates your local main branch.
+New moderation tools, analytics features, and management capabilities are continuously being added.
 
 ---
 
-# Updating Your Branch With Latest Main
+## 🔒 Internal Project Notice
 
-After main receives new updates:
+This repository is publicly visible for portfolio and showcase purposes.
 
-## Pratyush
+The dashboard itself is intended for internal administrative use only.
 
-```bash
-git checkout pratyush
-git merge main
-git push
-```
-
-## Apoorva
-
-```bash
-git checkout apoorva
-git merge main
-git push
-```
-
-This keeps your branch up-to-date with the latest stable code.
+External contributions, redistribution, modification, or commercial use are not authorized without explicit permission from the project maintainers.
 
 ---
 
-# Getting Teammate's Latest Changes
+## 📄 License
 
-## Pratyush pulls Apoorva's work
+No open-source license has been applied to this repository.
 
-```bash
-git checkout pratyush
-git fetch
-git merge origin/apoorva
-git push
-```
+All rights reserved.
 
-## Apoorva pulls Pratyush's work
-
-```bash
-git checkout apoorva
-git fetch
-git merge origin/pratyush
-git push
-```
+Viewing the source code does not grant permission to copy, modify, redistribute, or commercially use any part of this project.
 
 ---
 
-# Daily Workflow
+<div align="center">
 
-1. Switch to your branch.
-2. Pull latest updates.
-3. Make changes.
-4. Commit.
-5. Push.
-6. Create Pull Request when feature is complete.
-7. Merge into main after testing.
-8. Update your branch from main.
+Built for managing the Campus Pages ecosystem.
 
----
-
-# Project Rules
-
-✅ Commit frequently
-
-✅ Push frequently
-
-✅ Keep main stable
-
-✅ Use Pull Requests for important features
-
-❌ Do not develop directly on main
-
-❌ Do not force push to main
-
-❌ Do not commit node_modules
-
-❌ Do not merge untested code into main
+</div>
