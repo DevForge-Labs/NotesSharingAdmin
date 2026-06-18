@@ -66,6 +66,16 @@ const normalizeSection = (rawSection: string) => {
   };
 };
 
+const getBranchesForCollege = (collegeId: string): string[] => {
+  const collegeKey = (collegeId || '').trim().toLowerCase();
+  const collegeCatalog = (subjectCatalog as any)[collegeKey];
+  if (!collegeCatalog) return [];
+  return Object.keys(collegeCatalog).filter(key => {
+    const val = collegeCatalog[key];
+    return val && typeof val === 'object' && !Array.isArray(val);
+  });
+};
+
 export const AssignmentsMassUploadDialog: React.FC<AssignmentsMassUploadDialogProps> = ({
   isOpen,
   onClose,
@@ -131,24 +141,57 @@ export const AssignmentsMassUploadDialog: React.FC<AssignmentsMassUploadDialogPr
   const semNum = semMatch ? parseInt(semMatch[0], 10) : 0;
   const isGroupRequired = semNum === 1 || semNum === 2;
 
-  // Resolve subjects based on Semester, Group (including inverse mapping)
+  // Resolve subjects based on College, Branch, Semester, Group (including inverse mapping)
   const getResolvedSubjects = (): Subject[] => {
+    const collegeKey = (college || '').trim().toLowerCase();
+    if (!collegeKey) return [];
+
+    const collegeCatalog = (subjectCatalog as any)[collegeKey];
+    if (!collegeCatalog) return [];
+
+    // Semester 1 & 2 logic
     if (semNum === 1) {
-      if (group === 'Group A') return subjectCatalog.GROUP_A.subjects;
-      if (group === 'Group B') return subjectCatalog.GROUP_B.subjects;
-      return [];
+      let rawSubjects: any[] = [];
+      if (group === 'Group A') rawSubjects = collegeCatalog.GROUP_A;
+      else if (group === 'Group B') rawSubjects = collegeCatalog.GROUP_B;
+      
+      if (!Array.isArray(rawSubjects)) return [];
+      return rawSubjects.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        shortName: s.shortName || s.name
+      }));
     }
+
     if (semNum === 2) {
+      let rawSubjects: any[] = [];
       // Semester 2 uses inverse group mapping
-      if (group === 'Group A') return subjectCatalog.GROUP_B.subjects;
-      if (group === 'Group B') return subjectCatalog.GROUP_A.subjects;
-      return [];
+      if (group === 'Group A') rawSubjects = collegeCatalog.GROUP_B;
+      else if (group === 'Group B') rawSubjects = collegeCatalog.GROUP_A;
+
+      if (!Array.isArray(rawSubjects)) return [];
+      return rawSubjects.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        shortName: s.shortName || s.name
+      }));
     }
-    if (semNum === 3) return subjectCatalog.CS_3.subjects;
-    if (semNum === 4) return subjectCatalog.CS_4.subjects;
-    if (semNum === 5) return subjectCatalog.CS_5.subjects;
-    if (semNum === 6) return subjectCatalog.CS_6.subjects;
-    return [];
+
+    // Semester 3 and above dynamic lookup
+    const branchKey = (branch || '').trim().toLowerCase();
+    if (!branchKey || !semNum) return [];
+
+    const branchCatalog = collegeCatalog[branchKey];
+    if (!branchCatalog) return [];
+
+    const rawSubjects = branchCatalog[semNum];
+    if (!Array.isArray(rawSubjects)) return [];
+
+    return rawSubjects.map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      shortName: s.shortName || s.name
+    }));
   };
 
   const subjects = getResolvedSubjects();
@@ -410,7 +453,12 @@ export const AssignmentsMassUploadDialog: React.FC<AssignmentsMassUploadDialogPr
             <Select
               label="College"
               value={college}
-              onChange={(e) => setCollege(e.target.value)}
+              onChange={(e) => {
+                setCollege(e.target.value);
+                setBranch('');
+                setApplyAllSubject('');
+                setFiles(prev => prev.map(f => ({ ...f, subject: '', displaySubject: '' })));
+              }}
               className="bg-card text-foreground"
               disabled={isUploading || isLoadingColleges}
             >
@@ -427,17 +475,20 @@ export const AssignmentsMassUploadDialog: React.FC<AssignmentsMassUploadDialogPr
             <Select
               label="Branch"
               value={branch}
-              onChange={(e) => setBranch(e.target.value)}
+              onChange={(e) => {
+                setBranch(e.target.value);
+                setApplyAllSubject('');
+                setFiles(prev => prev.map(f => ({ ...f, subject: '', displaySubject: '' })));
+              }}
               className="bg-card text-foreground"
-              disabled={isUploading}
+              disabled={isUploading || !college}
             >
               <option value="">Select Branch</option>
-              <option value="Computer Science">Computer Science</option>
-              <option value="Mechanical">Mechanical</option>
-              <option value="Electrical">Electrical</option>
-              <option value="Electronics">Electronics</option>
-              <option value="Civil">Civil</option>
-              <option value="Information Technology">Information Technology</option>
+              {getBranchesForCollege(college).map((bKey) => (
+                <option key={bKey} value={bKey}>
+                  {bKey.toUpperCase()}
+                </option>
+              ))}
             </Select>
           </div>
 
