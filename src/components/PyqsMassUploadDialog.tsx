@@ -370,6 +370,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
           upvotes: 0,
           bookmarks: 0,
           viewsCount: 0,
+          trendingScore: 0,
           fileUrl: downloadUrl,
           downloadUrl: downloadUrl,
           storagePath: storagePath,

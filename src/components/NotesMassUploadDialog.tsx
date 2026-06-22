@@ -375,6 +375,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
           downloadsCount: 0,
           upvotes: 0,
           bookmarks: 0,
+          trendingScore: 0,
           attachmentCount: 1,
           searchKey: cleanSubjectId,
           tags: [],

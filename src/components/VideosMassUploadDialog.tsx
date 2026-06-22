@@ -410,6 +410,7 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
           upvotes: 0,
           bookmarks: 0,
           viewsCount: 0,
+          trendingScore: 0,
           fileUrl: null,
           storagePath: null,
           isVerified: false,

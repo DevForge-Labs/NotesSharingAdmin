@@ -366,6 +366,7 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
           upvotes: 0,
           bookmarks: 0,
           viewsCount: 0,
+          trendingScore: 0,
           fileUrl: downloadUrl,
           downloadUrl: downloadUrl,
           storagePath: storagePath,
