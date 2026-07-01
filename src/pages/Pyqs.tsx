@@ -11,6 +11,7 @@ import { PyqsMassUploadDialog } from '@/components/PyqsMassUploadDialog';
 import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 import { BulkDeleteDialog } from '@/components/BulkDeleteDialog';
 import { cn } from '@/lib/utils';
+import { useResourceDeepLink } from '@/hooks/useResourceDeepLink';
 import { 
   Search, 
   Eye, 
@@ -74,7 +75,7 @@ export const Pyqs: React.FC = () => {
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   
   // Search and Sort states
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('search') || '');
   const [sortBy, setSortBy] = useState<'Latest' | 'Downloads' | 'Views'>('Latest');
 
   // Toast feedback state
@@ -117,6 +118,8 @@ export const Pyqs: React.FC = () => {
   useEffect(() => {
     fetchPyqs();
   }, []);
+
+  useResourceDeepLink(loading, pyqs, handleOpenDetails);
 
   const showToast = (
     messageOrOptions: string | { title?: string; description?: string; variant?: string },
@@ -228,8 +231,9 @@ export const Pyqs: React.FC = () => {
     const uploaderMatch = (item.uploaderName ?? 'Anonymous').toLowerCase().includes(q);
     const examTypeMatch = (item.examType ?? '—').toLowerCase().includes(q);
     const examYearMatch = (item.examYear ?? '—').toLowerCase().includes(q);
+    const idMatch = item.id?.toLowerCase() === q || item.documentId?.toLowerCase() === q;
 
-    return titleMatch || subjectMatch || uploaderMatch || examTypeMatch || examYearMatch;
+    return titleMatch || subjectMatch || uploaderMatch || examTypeMatch || examYearMatch || idMatch;
   });
 
   // Timestamp resolver

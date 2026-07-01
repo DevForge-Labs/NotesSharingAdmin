@@ -11,6 +11,7 @@ import { NotesMassUploadDialog } from '@/components/NotesMassUploadDialog';
 import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 import { BulkDeleteDialog } from '@/components/BulkDeleteDialog';
 import { cn } from '@/lib/utils';
+import { useResourceDeepLink } from '@/hooks/useResourceDeepLink';
 import {
   Search,
   Check,
@@ -124,7 +125,7 @@ export const Notes: React.FC = () => {
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
 
   // Filter & Search states
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('search') || '');
   const [typeFilter, setTypeFilter] = useState<'All' | 'Notes' | 'Assignment' | 'PYQ' | 'Cheat Sheet'>('All');
   const [sortBy, setSortBy] = useState<'Latest' | 'Downloads' | 'Views'>('Latest');
 
@@ -179,6 +180,8 @@ export const Notes: React.FC = () => {
   useEffect(() => {
     fetchNotes();
   }, []);
+
+  useResourceDeepLink(loading, notes, handleOpenDetails);
 
   const showToast = (
     messageOrOptions: string | { title?: string; description?: string; variant?: string },

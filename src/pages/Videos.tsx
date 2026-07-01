@@ -29,6 +29,7 @@ import { VideosMassUploadDialog } from '@/components/VideosMassUploadDialog';
 import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 import { BulkDeleteDialog } from '@/components/BulkDeleteDialog';
 import { cn } from '@/lib/utils';
+import { useResourceDeepLink } from '@/hooks/useResourceDeepLink';
 
 interface VideoItem {
   id: string;
@@ -72,7 +73,7 @@ export const Videos: React.FC = () => {
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   
   // Search and Sort states
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('search') || '');
   const [sortBy, setSortBy] = useState<'Latest' | 'Downloads' | 'Views'>('Latest');
 
   // Toast feedback state
@@ -115,6 +116,8 @@ export const Videos: React.FC = () => {
   useEffect(() => {
     fetchVideos();
   }, []);
+
+  useResourceDeepLink(loading, videos, handleOpenDetails);
 
   const showToast = (
     messageOrOptions: string | { title?: string; description?: string; variant?: string },
@@ -214,8 +217,9 @@ export const Videos: React.FC = () => {
     const channelMatch = (item.channelName ?? '—').toLowerCase().includes(q);
     const uploaderMatch = (item.uploaderName ?? 'Anonymous').toLowerCase().includes(q);
     const typeMatch = (item.youtubeResourceType ?? '—').toLowerCase().includes(q);
+    const idMatch = item.id?.toLowerCase() === q || item.documentId?.toLowerCase() === q;
 
-    return titleMatch || subjectMatch || channelMatch || uploaderMatch || typeMatch;
+    return titleMatch || subjectMatch || channelMatch || uploaderMatch || typeMatch || idMatch;
   });
 
   // Timestamp resolver

@@ -11,6 +11,7 @@ import { AssignmentsMassUploadDialog } from '@/components/AssignmentsMassUploadD
 import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 import { BulkDeleteDialog } from '@/components/BulkDeleteDialog';
 import { cn } from '@/lib/utils';
+import { useResourceDeepLink } from '@/hooks/useResourceDeepLink';
 import { 
   Search, 
   GraduationCap, 
@@ -76,7 +77,7 @@ export const Assignments: React.FC = () => {
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
   
   // Search and Sort states
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => new URLSearchParams(window.location.search).get('search') || '');
   const [sortBy, setSortBy] = useState<'Latest' | 'Downloads' | 'Views'>('Latest');
 
   // Toast feedback state
@@ -119,6 +120,8 @@ export const Assignments: React.FC = () => {
   useEffect(() => {
     fetchAssignments();
   }, []);
+
+  useResourceDeepLink(loading, assignments, handleOpenDetails);
 
   const showToast = (
     messageOrOptions: string | { title?: string; description?: string; variant?: string },
@@ -228,8 +231,9 @@ export const Assignments: React.FC = () => {
     const titleMatch = item.title?.toLowerCase().includes(q) || false;
     const subjectMatch = item.displaySubject?.toLowerCase().includes(q) || item.subject?.toLowerCase().includes(q) || false;
     const uploaderMatch = item.uploaderName?.toLowerCase().includes(q) || false;
+    const idMatch = item.id?.toLowerCase() === q || item.documentId?.toLowerCase() === q;
 
-    return titleMatch || subjectMatch || uploaderMatch;
+    return titleMatch || subjectMatch || uploaderMatch || idMatch;
   });
 
   // Timestamp resolver

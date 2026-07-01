@@ -14,6 +14,7 @@ import { Cheatsheets } from '@/pages/Cheatsheets';
 import { Videos } from '@/pages/Videos';
 import { Users } from '@/pages/Users';
 import { Settings } from '@/pages/Settings';
+import { ReportsPage } from '@/pages/ReportsPage';
 
 // Protected Route Wrapper Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -59,6 +60,7 @@ export const AppRoutes: React.FC = () => {
                 <Route path="cheatsheets" element={<Cheatsheets />} />
                 <Route path="users" element={<Users />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="reports" element={<ReportsPage />} />
                 
                 {/* Fallbacks */}
                 <Route path="" element={<Navigate to="/dashboard" replace />} />
