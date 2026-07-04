@@ -31,6 +31,15 @@ export interface DeleteResourceParams {
   };
 }
 
+export interface ReportDeletionMetadata {
+  triggeredByReport: boolean;
+  reportId: string;
+  reporterUid: string;
+  reporterName: string;
+  reportReason: string;
+  reportNotificationSent: boolean;
+}
+
 function removeUndefined(obj: any): any {
   if (obj === null || typeof obj !== 'object') {
     return obj;
@@ -47,7 +56,10 @@ function removeUndefined(obj: any): any {
   return newObj;
 }
 
-export async function deleteResource(params: DeleteResourceParams): Promise<{ success: boolean; error?: any }> {
+export async function deleteResource(
+  params: DeleteResourceParams,
+  reportMetadata?: ReportDeletionMetadata
+): Promise<{ success: boolean; error?: any }> {
   try {
     // Check whether any valid Firebase Storage path exists
     const hasValidStoragePath = params.storagePaths.some(pathOrUrl => {
@@ -77,6 +89,15 @@ export async function deleteResource(params: DeleteResourceParams): Promise<{ su
       notificationSent: false,
       resourceSnapshot: params.resourceSnapshot,
     };
+
+    if (reportMetadata) {
+      auditLog.triggeredByReport = reportMetadata.triggeredByReport;
+      auditLog.reportId = reportMetadata.reportId;
+      auditLog.reporterUid = reportMetadata.reporterUid;
+      auditLog.reporterName = reportMetadata.reporterName;
+      auditLog.reportReason = reportMetadata.reportReason;
+      auditLog.reportNotificationSent = reportMetadata.reportNotificationSent;
+    }
 
     if (params.storagePaths && params.storagePaths.length > 0) {
       auditLog.storagePaths = params.storagePaths;

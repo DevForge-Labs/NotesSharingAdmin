@@ -265,10 +265,17 @@ export const ReportDetails: React.FC<ReportDetailsProps> = ({ report, onClose, s
         uploaderFcmToken,
         deletedByUid: currentAdminUid,
         deletedByName: currentAdminName,
-        deletionReason: 'Administrative action (User Report)',
+        deletionReason: `Removed after moderator review of a user report.\n\nReported Reason: ${report.reason}`,
         customReason: `Report reason: ${report.reason}`,
         storagePaths,
         resourceSnapshot
+      }, {
+        triggeredByReport: true,
+        reportId: report.id,
+        reporterUid: report.reporterUid,
+        reporterName: report.reporterName,
+        reportReason: report.reason,
+        reportNotificationSent: false
       });
 
       if (!result.success) {
