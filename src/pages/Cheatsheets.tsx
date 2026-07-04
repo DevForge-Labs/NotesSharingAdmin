@@ -119,8 +119,6 @@ export const Cheatsheets: React.FC = () => {
     fetchCheatsheets();
   }, []);
 
-  useResourceDeepLink(loading, cheatsheets, handleOpenDetails);
-
   const showToast = (
     messageOrOptions: string | { title?: string; description?: string; variant?: string },
     type: 'success' | 'info' | 'error' = 'success'
@@ -279,6 +277,8 @@ export const Cheatsheets: React.FC = () => {
     setSelectedCheatsheet(item);
     setIsDetailOpen(true);
   };
+
+  useResourceDeepLink(loading, cheatsheets, handleOpenDetails);
 
   return (
     <div className="space-y-6">

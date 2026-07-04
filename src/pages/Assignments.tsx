@@ -121,8 +121,6 @@ export const Assignments: React.FC = () => {
     fetchAssignments();
   }, []);
 
-  useResourceDeepLink(loading, assignments, handleOpenDetails);
-
   const showToast = (
     messageOrOptions: string | { title?: string; description?: string; variant?: string },
     type: 'success' | 'info' | 'error' = 'success'
@@ -281,6 +279,8 @@ export const Assignments: React.FC = () => {
     setSelectedAssignment(item);
     setIsDetailOpen(true);
   };
+
+  useResourceDeepLink(loading, assignments, handleOpenDetails);
 
   return (
     <div className="space-y-6">

@@ -119,8 +119,6 @@ export const Pyqs: React.FC = () => {
     fetchPyqs();
   }, []);
 
-  useResourceDeepLink(loading, pyqs, handleOpenDetails);
-
   const showToast = (
     messageOrOptions: string | { title?: string; description?: string; variant?: string },
     type: 'success' | 'info' | 'error' = 'success'
@@ -281,6 +279,8 @@ export const Pyqs: React.FC = () => {
     setSelectedPyq(item);
     setIsDetailOpen(true);
   };
+
+  useResourceDeepLink(loading, pyqs, handleOpenDetails);
 
   return (
     <div className="space-y-6">

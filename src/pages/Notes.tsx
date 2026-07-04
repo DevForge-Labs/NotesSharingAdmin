@@ -181,8 +181,6 @@ export const Notes: React.FC = () => {
     fetchNotes();
   }, []);
 
-  useResourceDeepLink(loading, notes, handleOpenDetails);
-
   const showToast = (
     messageOrOptions: string | { title?: string; description?: string; variant?: string },
     type: 'success' | 'info' | 'error' = 'success'
@@ -220,6 +218,8 @@ export const Notes: React.FC = () => {
     setIsDetailOpen(true);
     setCopiedType(null);
   };
+
+  useResourceDeepLink(loading, notes, handleOpenDetails);
 
   // Helper formatting size
   const formatFileSize = (bytes: any) => {

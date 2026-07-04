@@ -117,8 +117,6 @@ export const Videos: React.FC = () => {
     fetchVideos();
   }, []);
 
-  useResourceDeepLink(loading, videos, handleOpenDetails);
-
   const showToast = (
     messageOrOptions: string | { title?: string; description?: string; variant?: string },
     type: 'success' | 'info' | 'error' = 'success'
@@ -267,6 +265,8 @@ export const Videos: React.FC = () => {
     setSelectedVideo(item);
     setIsDetailOpen(true);
   };
+
+  useResourceDeepLink(loading, videos, handleOpenDetails);
 
   const handleOpenVideoLink = () => {
     if (selectedVideo?.youtubeUrl) {
