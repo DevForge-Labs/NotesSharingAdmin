@@ -72,10 +72,19 @@ export const ReportDetails: React.FC<ReportDetailsProps> = ({ report, onClose, s
   // Confirmation dialogs & loading states
   const [confirmType, setConfirmType] = useState<'delete' | 'dismiss' | null>(null);
   const [isModifying, setIsModifying] = useState<boolean>(false);
+  const [dismissReason, setDismissReason] = useState<string>('');
+  const [dismissError, setDismissError] = useState<string | null>(null);
 
   // Centralized academic metadata from original resource
   const [extraMetadata, setExtraMetadata] = useState<any>(null);
   const [loadingMetadata, setLoadingMetadata] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (confirmType !== 'dismiss') {
+      setDismissReason('');
+      setDismissError(null);
+    }
+  }, [confirmType]);
 
   useEffect(() => {
     let active = true;
@@ -195,9 +204,17 @@ export const ReportDetails: React.FC<ReportDetailsProps> = ({ report, onClose, s
   // Moderation Handlers
   const handleConfirmDismiss = async () => {
     if (isModifying || !currentAdminUid) return;
+    
+    const trimmedReason = dismissReason.trim();
+    if (!trimmedReason) {
+      setDismissError("Please enter a moderator message explaining the decision.");
+      return;
+    }
+    
+    setDismissError(null);
     setIsModifying(true);
     try {
-      await reportService.dismissReport(report.id, currentAdminUid);
+      await reportService.dismissReport(report.id, currentAdminUid, trimmedReason);
       showToast("Report dismissed successfully.", "success");
       setConfirmType(null);
       onClose();
@@ -641,6 +658,29 @@ export const ReportDetails: React.FC<ReportDetailsProps> = ({ report, onClose, s
                 <p className="mt-2 font-medium">This report will be marked as resolved and removed from the pending moderation queue.</p>
               </DialogDescription>
             </DialogHeader>
+
+            <div className="space-y-1.5 font-sans">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                Moderator Message <span className="text-red-500 font-bold">*</span>
+              </label>
+              <textarea
+                value={dismissReason}
+                onChange={(e) => {
+                  setDismissReason(e.target.value);
+                  if (e.target.value.trim()) {
+                    setDismissError(null);
+                  }
+                }}
+                disabled={isModifying}
+                placeholder="Explain why this report is being dismissed..."
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-all focus:outline-none focus:ring-1 focus:ring-ring min-h-[100px] focus:border-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              {dismissError && (
+                <p className="text-xs text-red-500 font-medium font-sans">
+                  {dismissError}
+                </p>
+              )}
+            </div>
 
             <DialogFooter className="flex justify-end gap-2 mt-6">
               <Button 

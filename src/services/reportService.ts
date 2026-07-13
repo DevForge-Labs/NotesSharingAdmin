@@ -82,13 +82,15 @@ export const reportService = {
     }
   },
 
-  dismissReport: async (reportId: string, resolvedByUid: string): Promise<void> => {
+  dismissReport: async (reportId: string, resolvedByUid: string, moderatorMessage: string): Promise<void> => {
     const reportRef = doc(db, 'reports', reportId);
     await updateDoc(reportRef, {
       status: 'resolved',
       actionTaken: 'dismissed',
       resolvedAt: serverTimestamp(),
-      resolvedByUid: resolvedByUid
+      resolvedByUid: resolvedByUid,
+      moderatorMessage: moderatorMessage,
+      notificationSent: false
     });
   },
 
