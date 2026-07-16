@@ -41,12 +41,12 @@ interface FirestoreUser {
   semester?: string;
   role?: string;
   contributorLevel?: string;
-  uploads?: number;
+  totalUploads?: number;
   notesUploads?: number;
   assignmentUploads?: number;
   pyqUploads?: number;
   cheatSheetUploads?: number;
-  youtubeUploads?: number;
+  youtubeResourceUploads?: number;
   createdAt?: any; // Timestamp or string/number
 }
 
@@ -430,7 +430,7 @@ export const Users: React.FC = () => {
                         )}
                       </td>
                       <td className="p-4 text-center font-semibold">
-                        {user.uploads !== undefined ? user.uploads : <span className="text-muted-foreground/50 font-normal">—</span>}
+                        {user.totalUploads !== undefined ? user.totalUploads : <span className="text-muted-foreground/50 font-normal">—</span>}
                       </td>
                       <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">
                         {renderDateField(user.createdAt)}
@@ -614,7 +614,7 @@ export const Users: React.FC = () => {
                     <Youtube className="h-4 w-4 text-rose-500 mx-auto mb-1" />
                     <span className="text-[9px] text-muted-foreground block truncate font-medium">YouTube</span>
                     <span className="text-lg font-bold text-foreground mt-0.5 block">
-                      {selectedUser.youtubeUploads !== undefined ? selectedUser.youtubeUploads : <span className="text-muted-foreground/50 font-normal">—</span>}
+                      {selectedUser.youtubeResourceUploads !== undefined ? selectedUser.youtubeResourceUploads : <span className="text-muted-foreground/50 font-normal">—</span>}
                     </span>
                   </div>
 
@@ -623,7 +623,7 @@ export const Users: React.FC = () => {
                     <Upload className="h-4 w-4 text-primary mx-auto mb-1" />
                     <span className="text-[9px] text-primary/80 font-bold block truncate">Total Uploads</span>
                     <span className="text-lg font-extrabold text-primary mt-0.5 block">
-                      {selectedUser.uploads !== undefined ? selectedUser.uploads : <span className="text-muted-foreground/50 font-normal">—</span>}
+                      {selectedUser.totalUploads !== undefined ? selectedUser.totalUploads : <span className="text-muted-foreground/50 font-normal">—</span>}
                     </span>
                   </div>
                 </div>

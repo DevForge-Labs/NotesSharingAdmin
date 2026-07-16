@@ -7,6 +7,7 @@ import { subjectCatalog } from '../../data/subjectCatalog';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
+import { incrementUserUploads } from '@/lib/statsService';
 import { useAuth } from '@/context/AuthContext';
 import { 
   Upload, 
@@ -385,6 +386,10 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
         };
 
         await setDoc(docRef, docData);
+
+        // Increment uploader stats
+        const uploaderId = currentUser?.uid || 'admin-uploader';
+        await incrementUserUploads(uploaderId, 'cheatsheets', 1);
 
         // Mark item as success
         setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'success', progress: 100 } : f));

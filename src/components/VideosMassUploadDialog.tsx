@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { subjectCatalog } from '../../data/subjectCatalog';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { incrementUserUploads } from '@/lib/statsService';
 import { useAuth } from '@/context/AuthContext';
 import { 
   Plus,
@@ -427,6 +428,10 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
         };
 
         await setDoc(docRef, docData);
+
+        // Increment uploader stats
+        const uploaderId = currentUser?.uid || 'admin-uploader';
+        await incrementUserUploads(uploaderId, 'videos', 1);
 
         // Mark item as success
         setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'success', progress: 100 } : f));
