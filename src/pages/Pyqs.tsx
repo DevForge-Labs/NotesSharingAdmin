@@ -10,7 +10,7 @@ import { Dialog, DialogHeader, DialogFooter, DialogTitle, DialogDescription } fr
 import { PyqsMassUploadDialog } from '@/components/PyqsMassUploadDialog';
 import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 import { BulkDeleteDialog } from '@/components/BulkDeleteDialog';
-import { cn } from '@/lib/utils';
+import { cn, removeFileExtension } from '@/lib/utils';
 import { useResourceDeepLink } from '@/hooks/useResourceDeepLink';
 import { 
   Search, 
@@ -500,8 +500,8 @@ export const Pyqs: React.FC = () => {
                         <td className="p-4 font-semibold text-xs text-muted-foreground">
                           {index + 1}
                         </td>
-                        <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={item.title}>
-                          {item.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
+                        <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={removeFileExtension(item.title)}>
+                          {removeFileExtension(item.title) || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
                         </td>
                         <td className="p-4 text-muted-foreground font-medium">
                           {item.displaySubject || item.subject || <span className="text-muted-foreground/50 italic">—</span>}
@@ -567,7 +567,7 @@ export const Pyqs: React.FC = () => {
 
                 <div className="min-w-0 flex-1">
                   <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
-                    {selectedPyq.title || <span className="text-muted-foreground/60 italic font-normal">Untitled PYQ</span>}
+                    {removeFileExtension(selectedPyq.title) || <span className="text-muted-foreground/60 italic font-normal">Untitled PYQ</span>}
                     <Badge className="text-[10px] py-0 px-2 uppercase font-extrabold tracking-wide bg-amber-500/20 text-amber-400 border-amber-500/35">
                       PYQ
                     </Badge>

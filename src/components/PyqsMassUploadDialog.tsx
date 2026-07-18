@@ -323,6 +323,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
         const fileExtension = item.file.name.substring(item.file.name.lastIndexOf('.') + 1).toLowerCase() || 'pdf';
         const safeSubject = item.displaySubject.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '');
         const standardizedFileName = `${safeSubject}.${normalizedExamType}.${item.examYear}.${fileExtension}`;
+        const standardizedTitle = `${safeSubject}.${normalizedExamType}.${item.examYear}`;
         const storagePath = `pyqs/${semester.trim()}/${cleanSubjectId}-pyq-${docId}/${standardizedFileName}`;
 
         // Reference to Storage location
@@ -354,7 +355,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
         const docRef = doc(db, 'pyqs', docId);
         const docData = {
           documentId: docId,
-          title: standardizedFileName,
+          title: standardizedTitle,
           description: '',
           branch: branch,
           semester: semester,

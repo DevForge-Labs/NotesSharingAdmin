@@ -9,6 +9,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { incrementUserUploads } from '@/lib/statsService';
 import { useAuth } from '@/context/AuthContext';
+import { sanitizeFileName } from '@/lib/utils';
 import { 
   Upload, 
   FileText, 
@@ -316,7 +317,9 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
       try {
         const docId = item.id;
         const cleanSubjectId = item.subject.toLowerCase();
-        const fileName = "cheatsheet.pdf";
+        const fileExtension = item.file.name.substring(item.file.name.lastIndexOf('.') + 1).toLowerCase() || 'pdf';
+        const sanitizedTitle = sanitizeFileName(item.title.trim());
+        const fileName = `${sanitizedTitle}.${fileExtension}`;
         const folderSlug = `${cleanSubjectId}-cheatsheet-${docId}`;
         const storagePath = `cheatsheets/${folderSlug}/${fileName}`;
 
