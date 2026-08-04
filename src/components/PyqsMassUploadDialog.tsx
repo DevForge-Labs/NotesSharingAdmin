@@ -21,6 +21,13 @@ import {
   Loader2
 } from 'lucide-react';
 
+import { AiAutofillToggle } from '@/components/ui/AiAutofillToggle';
+import { AiAnalysisSummaryBanner } from '@/components/ui/AiAnalysisSummaryBanner';
+import { useAiAutofill, AiAnalysisStatus } from '@/hooks/useAiAutofill';
+import { DocumentTypes } from '@/constants/documentTypes';
+import { MappedFirestoreMetadata } from '@/services/metadataMapper';
+import { getAllSubjectsFromCatalog } from '@/services/metadataParser';
+
 interface PyqsMassUploadDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -45,6 +52,12 @@ interface UploadQueueItem {
   progress: number;
   error?: string;
   isExpanded: boolean;
+  topics?: string[];
+  aiGenerated?: boolean;
+  aiConfidence?: number;
+  aiModel?: string;
+  aiVersion?: string;
+  analysisDurationMs?: number;
 }
 
 const getNormalizedExamType = (rawType: string) => {
@@ -85,8 +98,13 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const ai = useAiAutofill();
+
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      ai.cancelAnalysis();
+      return;
+    }
 
     const fetchColleges = async () => {
       try {
@@ -198,6 +216,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
     if (!selectedFiles) return;
 
     const newItems: UploadQueueItem[] = [];
+    const filesToAnalyze: { id: string; file: File }[] = [];
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       if (file.type !== 'application/pdf') {
@@ -227,10 +246,48 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
         progress: 0,
         isExpanded: false
       });
+
+      filesToAnalyze.push({ id: generatedId, file });
     }
 
     if (newItems.length > 0) {
       setFiles(prev => [...prev, ...newItems]);
+
+      if (ai.isEnabled) {
+        const catalogOptions = subjects.length > 0
+          ? subjects.map(s => ({ id: s.id, name: s.name }))
+          : getAllSubjectsFromCatalog();
+
+        ai.analyzeFiles(
+          filesToAnalyze,
+          DocumentTypes.PYQ,
+          catalogOptions,
+          { college, branch, semester },
+          (id: string, metadata: MappedFirestoreMetadata) => {
+            setFiles(prev => prev.map(item => {
+              if (item.id === id) {
+                const allSubs = getAllSubjectsFromCatalog();
+                const matchedSub = subjects.find(s => s.id.toLowerCase() === (metadata.subjectId || '').toLowerCase())
+                  || allSubs.find(s => s.id.toLowerCase() === (metadata.subjectId || '').toLowerCase());
+                return {
+                  ...item,
+                  subject: metadata.subjectId || item.subject,
+                  displaySubject: matchedSub ? matchedSub.name : (metadata.displaySubject || item.displaySubject),
+                  examType: metadata.examType || item.examType,
+                  examYear: metadata.examYear || item.examYear,
+                  topics: metadata.topics || [],
+                  aiGenerated: metadata.aiGenerated,
+                  aiConfidence: metadata.confidence,
+                  aiModel: metadata.aiModel,
+                  aiVersion: metadata.aiVersion,
+                  analysisDurationMs: metadata.analysisDurationMs
+                };
+              }
+              return item;
+            }));
+          }
+        );
+      }
     }
   };
 
@@ -286,6 +343,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
   // Reset fields on close
   const handleClose = () => {
     if (isUploading) return;
+    ai.cancelAnalysis();
     setBranch('');
     setSemester('');
     setGroup('');
@@ -383,7 +441,13 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
           fileSize: item.file.size,
           fileExtension: fileExtension,
           isVerified: false,
-          tags: [],
+          tags: item.topics || [],
+          topics: item.topics || [],
+          aiGenerated: item.aiGenerated || false,
+          aiConfidence: item.aiConfidence ?? null,
+          aiModel: item.aiModel || null,
+          aiVersion: item.aiVersion || null,
+          analysisDurationMs: item.analysisDurationMs || null,
           fileType: fileExtension,
           mimeType: item.file.type || 'application/pdf',
           thumbnailUrl: '',
@@ -431,11 +495,20 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
 
   return (
     <Dialog isOpen={isOpen} onClose={handleClose} className="max-w-5xl max-h-[90vh] flex flex-col min-h-0">
-      <DialogHeader className="shrink-0 pb-2 border-b border-border/60">
-        <DialogTitle className="text-xl font-bold tracking-tight">Mass Upload PYQs</DialogTitle>
-        <DialogDescription className="text-sm text-muted-foreground mt-1">
-          Bulk upload student previous year question papers and PDFs to the repository.
-        </DialogDescription>
+      <DialogHeader className="shrink-0 pb-2 border-b border-border/60 flex flex-row items-center justify-between">
+        <div>
+          <DialogTitle className="text-xl font-bold tracking-tight">Mass Upload PYQs</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-1">
+            Bulk upload student previous year question papers and PDFs to the repository.
+          </DialogDescription>
+        </div>
+        <div className="shrink-0 pr-4">
+          <AiAutofillToggle
+            isEnabled={ai.isEnabled}
+            onToggle={ai.toggleAi}
+            disabled={isUploading}
+          />
+        </div>
       </DialogHeader>
 
       <div className="flex-1 overflow-y-auto pr-2 py-4 space-y-5 scrollbar-thin select-text">
@@ -560,6 +633,11 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
           <p className="text-xs text-muted-foreground mt-1">or click to browse local files (PDF only)</p>
         </div>
 
+        {/* AI Analysis Summary Banner */}
+        {ai.isEnabled && (
+          <AiAnalysisSummaryBanner summary={ai.summary} isProcessing={ai.isProcessing} />
+        )}
+
         {/* Empty State */}
         {files.length === 0 && (
           <div className="text-center py-8 border border-dashed border-border/40 rounded-xl bg-accent/5">
@@ -639,94 +717,136 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
             </div>
 
             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-              {files.map((item) => (
-                <div 
-                  key={item.id} 
-                  className={`border rounded-lg overflow-hidden transition-all duration-200 ${
-                    item.isExpanded 
-                      ? 'border-violet-500/30 bg-violet-500/[0.03] shadow-lg' 
-                      : 'border-border/80 bg-zinc-950/80 shadow-md hover:border-border/100 hover:shadow-lg'
-                  }`}
-                >
-                  {/* Item Header */}
+              {files.map((item) => {
+                const aiState = ai.fileStates[item.id];
+                const isNeedsReview = aiState?.status === 'needs_review';
+
+                return (
                   <div 
-                    onClick={() => toggleExpand(item.id)}
-                    className="flex items-center justify-between p-3 select-none hover:bg-accent/15 cursor-pointer text-xs"
+                    key={item.id} 
+                    className={`border rounded-lg overflow-hidden transition-all duration-200 ${
+                      isNeedsReview
+                        ? 'border-amber-500/60 bg-amber-500/[0.04] shadow-[0_0_12px_rgba(245,158,11,0.1)]'
+                        : item.isExpanded 
+                        ? 'border-violet-500/30 bg-violet-500/[0.03] shadow-lg' 
+                        : 'border-border/80 bg-zinc-950/80 shadow-md hover:border-border/100 hover:shadow-lg'
+                    }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <FileText className="h-4 w-4 text-primary shrink-0" />
-                      <div className="min-w-0 flex-1 pr-4">
-                        <span className="font-semibold text-foreground truncate block" title={item.file.name}>
-                          {item.file.name}
+                    {/* Item Header */}
+                    <div 
+                      onClick={() => toggleExpand(item.id)}
+                      className="flex items-center justify-between p-3 select-none hover:bg-accent/15 cursor-pointer text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <div className="min-w-0 flex-1 pr-4">
+                          <span className="font-semibold text-foreground truncate block" title={item.file.name}>
+                            {item.file.name}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatFileSize(item.file.size)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        {/* AI State Badge */}
+                        {ai.isEnabled && aiState && (
+                          <span className="flex items-center gap-1 font-bold">
+                            {aiState.status === 'waiting' && (
+                              <span className="text-purple-300 bg-purple-500/10 border border-purple-500/30 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
+                                🟣 Waiting
+                              </span>
+                            )}
+                            {aiState.status === 'reading_pdf' && (
+                              <span className="text-blue-300 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
+                                <Loader2 className="h-2.5 w-2.5 animate-spin text-blue-400" /> Reading PDF
+                              </span>
+                            )}
+                            {aiState.status === 'ai_processing' && (
+                              <span className="text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
+                                <Loader2 className="h-2.5 w-2.5 animate-spin text-amber-400" /> AI Processing
+                              </span>
+                            )}
+                            {aiState.status === 'ready' && (
+                              <span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
+                                <CheckCircle className="h-2.5 w-2.5 text-emerald-400" /> Ready
+                              </span>
+                            )}
+                            {aiState.status === 'needs_review' && (
+                              <span className="text-amber-400 bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1 font-bold" title="AI confidence is below 70%, please verify metadata manually.">
+                                <AlertCircle className="h-2.5 w-2.5 text-amber-400" /> Needs Review
+                              </span>
+                            )}
+                            {aiState.status === 'failed' && (
+                              <span className="text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1" title={aiState.error}>
+                                <XCircle className="h-2.5 w-2.5 text-rose-400" /> AI Failed
+                              </span>
+                            )}
+                          </span>
+                        )}
+
+                        {/* Status Indicator */}
+                        <span className="flex items-center gap-1 font-bold">
+                          {item.status === 'queued' && !ai.isEnabled && (
+                            <span className="text-zinc-400 bg-zinc-800/80 border border-zinc-700/50 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
+                              <Clock className="h-2.5 w-2.5" /> Queued
+                            </span>
+                          )}
+                          {item.status === 'uploading' && (
+                            <span className="text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
+                              <Loader2 className="h-2.5 w-2.5 animate-spin" /> Uploading {Math.round(item.progress)}%
+                            </span>
+                          )}
+                          {item.status === 'success' && (
+                            <span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
+                              <CheckCircle className="h-2.5 w-2.5" /> Success
+                            </span>
+                          )}
+                          {item.status === 'failed' && (
+                            <span className="text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1" title={item.error}>
+                              <XCircle className="h-2.5 w-2.5" /> Failed
+                            </span>
+                          )}
                         </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatFileSize(item.file.size)}
-                        </span>
+
+                        {/* Discard button */}
+                        {!isUploading && item.status !== 'success' && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeFile(item.id);
+                            }}
+                            className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-accent/40"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+
+                        {/* Expand Chevron */}
+                        {item.isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
-                      {/* Status Indicator */}
-                      <span className="flex items-center gap-1 font-bold">
-                        {item.status === 'queued' && (
-                          <span className="text-zinc-400 bg-zinc-800/80 border border-zinc-700/50 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
-                            <Clock className="h-2.5 w-2.5" /> Queued
-                          </span>
-                        )}
-                        {item.status === 'uploading' && (
-                          <span className="text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
-                            <Loader2 className="h-2.5 w-2.5 animate-spin" /> Uploading {Math.round(item.progress)}%
-                          </span>
-                        )}
-                        {item.status === 'success' && (
-                          <span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
-                            <CheckCircle className="h-2.5 w-2.5" /> Success
-                          </span>
-                        )}
-                        {item.status === 'failed' && (
-                          <span className="text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1" title={item.error}>
-                            <XCircle className="h-2.5 w-2.5" /> Failed
-                          </span>
-                        )}
-                      </span>
-
-                      {/* Discard button */}
-                      {!isUploading && item.status !== 'success' && (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeFile(item.id);
-                          }}
-                          className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-accent/40"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-
-                      {/* Expand Chevron */}
-                      {item.isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </div>
-                  </div>
-
-                  {/* Progress Bar for individual item */}
-                  {item.status === 'uploading' && (
-                    <div className="w-full bg-zinc-800 h-1">
-                      <div 
-                        className="bg-violet-500 h-1 transition-all duration-300" 
-                        style={{ width: `${item.progress}%` }}
-                      />
-                    </div>
-                  )}
-                  {item.status === 'success' && (
-                    <div className="w-full bg-zinc-800 h-1">
-                      <div className="bg-emerald-500 h-1 w-full" />
-                    </div>
-                  )}
-                  {item.status === 'failed' && (
-                    <div className="w-full bg-zinc-800 h-1">
-                      <div className="bg-red-500 h-1 w-full" />
-                    </div>
-                  )}
+                    {/* Progress Bar for individual item */}
+                    {item.status === 'uploading' && (
+                      <div className="w-full bg-zinc-800 h-1">
+                        <div 
+                          className="bg-violet-500 h-1 transition-all duration-300" 
+                          style={{ width: `${item.progress}%` }}
+                        />
+                      </div>
+                    )}
+                    {item.status === 'success' && (
+                      <div className="w-full bg-zinc-800 h-1">
+                        <div className="bg-emerald-500 h-1 w-full" />
+                      </div>
+                    )}
+                    {item.status === 'failed' && (
+                      <div className="w-full bg-zinc-800 h-1">
+                        <div className="bg-red-500 h-1 w-full" />
+                      </div>
+                    )}
 
                   {/* Item Body */}
                   {item.isExpanded && (
@@ -738,10 +858,15 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
                             label="Subject *"
                             value={item.subject}
                             onChange={(e) => updateFileField(item.id, 'subject', e.target.value)}
-                            disabled={isUploading || item.status === 'success' || !isGlobalValid}
+                            disabled={isUploading || item.status === 'success'}
                             className="bg-card text-foreground"
                           >
                             <option value="">Select Subject</option>
+                            {item.subject && !subjects.some(s => s.id.toLowerCase() === item.subject.toLowerCase()) && (
+                              <option value={item.subject}>
+                                {item.displaySubject || item.subject.toUpperCase()}
+                              </option>
+                            )}
                             {subjects.map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.name} ({s.shortName})
@@ -787,7 +912,8 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
                     </div>
                   )}
                 </div>
-              ))}
+              );
+            })}
             </div>
           </div>
         )}
