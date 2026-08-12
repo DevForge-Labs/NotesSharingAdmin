@@ -9,8 +9,9 @@ export interface LocalParseResult {
   isCompleteMatch: boolean;
 }
 
-export function getAllSubjectsFromCatalog(): SubjectOption[] {
+export function getAllSubjectsFromCatalog(customCatalog?: any): SubjectOption[] {
   const map = new Map<string, string>();
+  const targetCatalog = customCatalog || subjectCatalog;
 
   function traverse(obj: any) {
     if (!obj || typeof obj !== 'object') return;
@@ -27,9 +28,10 @@ export function getAllSubjectsFromCatalog(): SubjectOption[] {
     }
   }
 
-  traverse(subjectCatalog);
+  traverse(targetCatalog);
   return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
 }
+
 
 export function parseFilenameMetadata(
   filename: string,
