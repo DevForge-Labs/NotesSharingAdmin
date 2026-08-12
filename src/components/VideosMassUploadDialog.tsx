@@ -3,7 +3,6 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { subjectCatalog } from '../../data/subjectCatalog';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { incrementUserUploads } from '@/lib/statsService';
@@ -20,6 +19,8 @@ import {
   Clock,
   Loader2
 } from 'lucide-react';
+import { useUploadCatalog } from '@/hooks/useUploadCatalog';
+
 
 interface VideosMassUploadDialogProps {
   isOpen: boolean;
@@ -75,16 +76,6 @@ const fetchYoutubeMetadata = async (url: string) => {
   };
 };
 
-const getBranchesForCollege = (collegeId: string): string[] => {
-  const collegeKey = (collegeId || '').trim().toLowerCase();
-  const collegeCatalog = (subjectCatalog as any)[collegeKey];
-  if (!collegeCatalog) return [];
-  return Object.keys(collegeCatalog).filter(key => {
-    const val = collegeCatalog[key];
-    return val && typeof val === 'object' && !Array.isArray(val);
-  });
-};
-
 export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
   isOpen,
   onClose,
@@ -94,8 +85,6 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
   const { user: currentUser } = useAuth();
   
   const [college, setCollege] = useState<string>('');
-  const [colleges, setColleges] = useState<{ id: string; name: string }[]>([]);
-  const [isLoadingColleges, setIsLoadingColleges] = useState<boolean>(true);
   const [branch, setBranch] = useState<string>('');
   const [semester, setSemester] = useState<string>('');
   const [group, setGroup] = useState<string>('');
@@ -103,31 +92,36 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [applyAllSubject, setApplyAllSubject] = useState<string>('');
 
+  const {
+    colleges,
+    getBranches,
+    getSemesters,
+    getSubjects,
+    allSubjects,
+    isLoading: isLoadingColleges,
+    reloadCatalog
+  } = useUploadCatalog();
+
   useEffect(() => {
     if (!isOpen) return;
-
-    const fetchColleges = async () => {
-      try {
-        setIsLoadingColleges(true);
-        const docRef = doc(db, 'app_config', 'colleges');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          const list = data.colleges || [];
-          setColleges(list);
-          if (list.length === 1) {
-            setCollege(list[0].id);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching colleges:', err);
-      } finally {
-        setIsLoadingColleges(false);
-      }
-    };
-
-    fetchColleges();
+    reloadCatalog();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (colleges.length === 1 && !college) {
+      setCollege(colleges[0].id);
+    }
+  }, [colleges, college]);
+
+  const availableBranches = getBranches(college);
+  const availableSemesters = getSemesters(college, branch);
+
+  const semMatch = semester.match(/\d+/);
+  const semNum = semMatch ? parseInt(semMatch[0], 10) : 0;
+  const isGroupRequired = (semNum === 1 || semNum === 2);
+
+  const subjects = getSubjects(college, branch, semester, group);
+
 
   const handleApplySubjectToAll = () => {
     if (!applyAllSubject) return;
@@ -142,65 +136,7 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
     }));
   };
 
-  // Extract semester number to determine if group logic applies
-  const semMatch = semester.match(/\d+/);
-  const semNum = semMatch ? parseInt(semMatch[0], 10) : 0;
-  const isGroupRequired = semNum === 1 || semNum === 2;
 
-  // Resolve subjects based on College, Branch, Semester, Group (including inverse mapping)
-  const getResolvedSubjects = (): Subject[] => {
-    const collegeKey = (college || '').trim().toLowerCase();
-    if (!collegeKey) return [];
-
-    const collegeCatalog = (subjectCatalog as any)[collegeKey];
-    if (!collegeCatalog) return [];
-
-    // Semester 1 & 2 logic
-    if (semNum === 1) {
-      let rawSubjects: any[] = [];
-      if (group === 'Group A') rawSubjects = collegeCatalog.GROUP_A;
-      else if (group === 'Group B') rawSubjects = collegeCatalog.GROUP_B;
-      
-      if (!Array.isArray(rawSubjects)) return [];
-      return rawSubjects.map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        shortName: s.shortName || s.name
-      }));
-    }
-
-    if (semNum === 2) {
-      let rawSubjects: any[] = [];
-      // Semester 2 uses inverse group mapping
-      if (group === 'Group A') rawSubjects = collegeCatalog.GROUP_B;
-      else if (group === 'Group B') rawSubjects = collegeCatalog.GROUP_A;
-
-      if (!Array.isArray(rawSubjects)) return [];
-      return rawSubjects.map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        shortName: s.shortName || s.name
-      }));
-    }
-
-    // Semester 3 and above dynamic lookup
-    const branchKey = (branch || '').trim().toLowerCase();
-    if (!branchKey || !semNum) return [];
-
-    const branchCatalog = collegeCatalog[branchKey];
-    if (!branchCatalog) return [];
-
-    const rawSubjects = branchCatalog[semNum];
-    if (!Array.isArray(rawSubjects)) return [];
-
-    return rawSubjects.map((s: any) => ({
-      id: s.id,
-      name: s.name,
-      shortName: s.shortName || s.name
-    }));
-  };
-
-  const subjects = getResolvedSubjects();
 
   // Add video resource entry to queue
   const handleAddResource = () => {
@@ -509,9 +445,9 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
               disabled={isUploading || !college}
             >
               <option value="">Select Branch</option>
-              {getBranchesForCollege(college).map((bKey) => (
-                <option key={bKey} value={bKey}>
-                  {bKey.toUpperCase()}
+              {availableBranches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
                 </option>
               ))}
             </Select>
@@ -536,9 +472,9 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
               disabled={isUploading}
             >
               <option value="">Select Semester</option>
-              {Array.from({ length: 8 }, (_, i) => (
-                <option key={i + 1} value={`Semester ${i + 1}`}>
-                  Semester {i + 1}
+              {availableSemesters.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </Select>

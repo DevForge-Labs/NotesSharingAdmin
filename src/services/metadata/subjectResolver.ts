@@ -35,8 +35,9 @@ export function resolveBranchId(storedBranch?: string): string {
   return clean;
 }
 
-export function getAllSubjectsFromCatalog(): CatalogSubjectItem[] {
+export function getAllSubjectsFromCatalog(customCatalog?: any): CatalogSubjectItem[] {
   const map = new Map<string, CatalogSubjectItem>();
+  const targetCatalog = customCatalog || subjectCatalog;
 
   function traverse(obj: any) {
     if (!obj || typeof obj !== 'object') return;
@@ -60,7 +61,8 @@ export function getAllSubjectsFromCatalog(): CatalogSubjectItem[] {
     }
   }
 
-  traverse(subjectCatalog);
+  traverse(targetCatalog);
+
 
   // Common academic aliases for KIIT / B.Tech subjects
   const aliasesMap: Record<string, string[]> = {

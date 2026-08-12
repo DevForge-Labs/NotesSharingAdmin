@@ -3,7 +3,6 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { subjectCatalog } from '../../data/subjectCatalog';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
@@ -28,6 +27,8 @@ import { useAiAutofill, AiAnalysisStatus } from '@/hooks/useAiAutofill';
 import { DocumentTypes } from '@/constants/documentTypes';
 import { MappedFirestoreMetadata } from '@/services/metadataMapper';
 import { getAllSubjectsFromCatalog } from '@/services/metadataParser';
+import { useUploadCatalog } from '@/hooks/useUploadCatalog';
+
 
 interface CheatsheetsMassUploadDialogProps {
   isOpen: boolean;
@@ -61,16 +62,6 @@ interface UploadQueueItem {
   analysisDurationMs?: number;
 }
 
-const getBranchesForCollege = (collegeId: string): string[] => {
-  const collegeKey = (collegeId || '').trim().toLowerCase();
-  const collegeCatalog = (subjectCatalog as any)[collegeKey];
-  if (!collegeCatalog) return [];
-  return Object.keys(collegeCatalog).filter(key => {
-    const val = collegeCatalog[key];
-    return val && typeof val === 'object' && !Array.isArray(val);
-  });
-};
-
 export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogProps> = ({
   isOpen,
   onClose,
@@ -80,13 +71,7 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
   const { user: currentUser } = useAuth();
   const ai = useAiAutofill();
   
-  const [college, setCollege] = useState<string>('kiit');
-  const [colleges, setColleges] = useState<{ id: string; name: string }[]>([
-    { id: 'kiit', name: 'KIIT University' },
-    { id: 'iter', name: 'SOA ITER' },
-    { id: 'outr', name: 'OUTR Bhubaneswar' }
-  ]);
-  const [isLoadingColleges, setIsLoadingColleges] = useState<boolean>(false);
+  const [college, setCollege] = useState<string>('');
   const [branch, setBranch] = useState<string>('');
   const [semester, setSemester] = useState<string>('');
   const [group, setGroup] = useState<string>('');
@@ -97,30 +82,26 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const {
+    colleges,
+    getBranches,
+    getSemesters,
+    getSubjects,
+    allSubjects,
+    isLoading: isLoadingColleges,
+    reloadCatalog
+  } = useUploadCatalog();
+
   useEffect(() => {
     if (!isOpen) return;
-
-    const fetchColleges = async () => {
-      try {
-        setIsLoadingColleges(true);
-        const docRef = doc(db, 'app_config', 'colleges');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          const list = data.colleges || [];
-          if (list.length > 0) {
-            setColleges(list);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching colleges:', err);
-      } finally {
-        setIsLoadingColleges(false);
-      }
-    };
-
-    fetchColleges();
+    reloadCatalog();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (colleges.length === 1 && !college) {
+      setCollege(colleges[0].id);
+    }
+  }, [colleges, college]);
 
   useEffect(() => {
     setBranch('');
@@ -140,38 +121,14 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
     setApplyAllSubject('');
   }, [semester]);
 
-  const availableBranches = getBranchesForCollege(college || 'kiit');
-  const semNum = parseInt(semester, 10);
-  const isGroupRequired = college === 'kiit' && (semNum === 1 || semNum === 2);
+  const availableBranches = getBranches(college);
+  const availableSemesters = getSemesters(college, branch);
+  const semMatch = semester.match(/\d+/);
+  const semNum = semMatch ? parseInt(semMatch[0], 10) : 0;
+  const isGroupRequired = (semNum === 1 || semNum === 2);
 
-  const getResolvedSubjects = (): Subject[] => {
-    const collegeKey = (college || '').trim().toLowerCase();
-    const collegeCatalog = (subjectCatalog as any)[collegeKey];
-    if (!collegeCatalog) return [];
+  const subjects = getSubjects(college, branch, semester, group);
 
-    const branchKey = (branch || '').trim().toLowerCase();
-    if (!branchKey || !semNum) return [];
-
-    const branchCatalog = collegeCatalog[branchKey];
-    if (branchCatalog && Array.isArray(branchCatalog[semNum])) {
-      return branchCatalog[semNum].map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        shortName: s.shortName || s.name
-      }));
-    }
-
-    const grpA = collegeCatalog['GROUP_A'] || collegeCatalog['group_a'] || [];
-    const grpB = collegeCatalog['GROUP_B'] || collegeCatalog['group_b'] || [];
-    const merged = [...(Array.isArray(grpA) ? grpA : []), ...(Array.isArray(grpB) ? grpB : [])];
-    return merged.map((s: any) => ({
-      id: s.id,
-      name: s.name,
-      shortName: s.shortName || s.name
-    }));
-  };
-
-  const subjects = getResolvedSubjects();
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -512,8 +469,8 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
               >
                 <option value="">Select Branch</option>
                 {availableBranches.map((b) => (
-                  <option key={b} value={b}>
-                    {b.toUpperCase()}
+                  <option key={b.id} value={b.id}>
+                    {b.name}
                   </option>
                 ))}
               </Select>
@@ -528,9 +485,9 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
                 className="bg-card text-foreground"
               >
                 <option value="">Select Semester</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                  <option key={s} value={s.toString()}>
-                    Semester {s}
+                {availableSemesters.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
                   </option>
                 ))}
               </Select>
