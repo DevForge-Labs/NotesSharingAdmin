@@ -52,176 +52,245 @@ export const PrivacyPolicy: React.FC = () => {
           {/* Policy Sections */}
           <div className="space-y-10 text-neutral-300 leading-relaxed text-sm sm:text-base">
             
-            {/* Section 1 */}
+            {/* Section 1: Information We Collect */}
             <section className="space-y-3">
               <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
                 <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                Information We Collect
+                1. Information We Collect
               </h2>
               <p className="text-muted-foreground">
-                Campus Pages collects specific information to deliver customized academic tools and platform stability. The categories we collect may include:
+                Campus Pages collects specific information necessary to provide academic resource sharing tools, maintain platform security, and manage user accounts. The categories of information we collect include:
               </p>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground pl-2">
                 <li>
-                  <strong className="text-foreground">Account Information:</strong> Profile credentials, username, and user configurations saved on Firebase services.
+                  <strong className="text-foreground">Account & Authentication Data:</strong> Name, email address, profile image URL, and unique account identifier received through authentication providers.
                 </li>
                 <li>
-                  <strong className="text-foreground">Email Address:</strong> Registration email used to establish verification profiles and security check credentials.
+                  <strong className="text-foreground">Academic Content:</strong> Lecture notes, previous year question papers (PYQs), revision cheatsheets, video links, assignments, and lab guides that you explicitly select and upload to share.
                 </li>
                 <li>
-                  <strong className="text-foreground">Uploaded Academic Content:</strong> Lecture notes, revision booklets, lab guides, exam materials, and study resources that you explicitly select and upload to share.
-                </li>
-                <li>
-                  <strong className="text-foreground">Usage Analytics:</strong> Anonymous diagnostic engagement telemetry to identify system usage frequencies.
-                </li>
-                <li>
-                  <strong className="text-foreground">Crash Diagnostics:</strong> Log telemetry records to troubleshoot errors and improve general platform consistency.
+                  <strong className="text-foreground">Technical & Diagnostic Logs:</strong> Technical metadata including browser user-agent, error logs, and administrative action logs used to maintain platform stability, moderation audit trails, and security.
                 </li>
               </ul>
             </section>
 
-            {/* Section 2 */}
+            {/* Section 2: Google Sign-In & Google User Data */}
             <section className="space-y-3">
               <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
                 <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                How We Use Information
+                2. Google Sign-In & Google User Data
               </h2>
               <p className="text-muted-foreground">
-                We leverage collected information to improve notes sharing security and overall features compatibility. Collected details are used to:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-muted-foreground pl-2">
-                <li>Provide core application functionality and secure logins.</li>
-                <li>Improve user recommendation feeds based on general relevance.</li>
-                <li>Maintain platform security, moderation compliance, and protect our servers from misuse.</li>
-                <li>Enable files upload and downloads functionality.</li>
-                <li>Optimize general user experience across various smartphone screens.</li>
-              </ul>
-            </section>
-
-            {/* Section 3 */}
-            <section className="space-y-3">
-              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
-                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                Account & Data Deletion
-              </h2>
-              <p className="text-muted-foreground">
-                Users may request deletion of their Campus Pages account and associated personal information by contacting the development team through the contact information provided below.
-              </p>
-              <p className="text-muted-foreground">
-                Upon receiving a valid request, we will make reasonable efforts to remove or anonymize personal information associated with the account, subject to legal obligations, security requirements, and operational necessities.
-              </p>
-              <p className="text-muted-foreground">
-                Some information may be retained for a limited period where required for fraud prevention, dispute resolution, security monitoring, or compliance purposes.
-              </p>
-            </section>
-
-            {/* Section 4 */}
-            <section className="space-y-3">
-              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
-                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                Content Uploaded By Users
-              </h2>
-              <p className="text-muted-foreground">
-                Campus Pages operates as a community knowledge hub. Users are entirely responsible for the academic materials they choose to upload to our platform. Users must ensure that they hold the necessary permissions to share their documents and that the uploads do not violate copyright policies.
-              </p>
-              <p className="text-muted-foreground">
-                Campus Pages does not claim ownership of user-uploaded academic content, and we preserve content credits to their respective contributors.
-              </p>
-            </section>
-
-            {/* Section 5 */}
-            <section className="space-y-3">
-              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
-                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                Storage of Uploaded Content
-              </h2>
-              <p className="text-muted-foreground">
-                Academic materials uploaded to Campus Pages may be securely stored on cloud infrastructure to enable sharing, discovery, downloads, backups, moderation, and other platform functionality.
-              </p>
-              <p className="text-muted-foreground">
-                Uploaded content may remain accessible to other users in accordance with the visibility settings and platform features available at the time of upload.
-              </p>
-            </section>
-
-            {/* Section 6 */}
-            <section className="space-y-3">
-              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
-                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                Data Security
-              </h2>
-              <p className="text-muted-foreground">
-                We use industry-standard security architectures and Google Firebase cloud services (Firestore Database, Cloud Storage, Authentication, and Firebase Cloud Messaging) to safeguard your files and account profiles. However, please be aware that no wireless transmission or internet storage method can be guaranteed to be absolutely secure.
-              </p>
-            </section>
-
-            {/* Section 7 */}
-            <section className="space-y-3">
-              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
-                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                Third-Party Services
-              </h2>
-              <p className="text-muted-foreground">
-                To provide advanced notifications and secure authentication, Campus Pages may integrate services from third-party partners. These services may include:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-muted-foreground pl-2">
-                <li>Firebase Authentication</li>
-                <li>Firebase Cloud Firestore</li>
-                <li>Firebase Cloud Messaging (FCM)</li>
-                <li>Google Play Services</li>
-              </ul>
-            </section>
-
-            {/* Section 8 */}
-            <section className="space-y-3">
-              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
-                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                Permissions
-              </h2>
-              <p className="text-muted-foreground">
-                Campus Pages may request certain device permissions that are necessary to provide core functionality and improve user experience.
-              </p>
-              <p className="text-muted-foreground font-medium text-foreground">
-                Examples may include:
+                Campus Pages enables users and administrators to sign in using Google Sign-In powered by Firebase Authentication. When you choose to authenticate with Google, our application receives the minimum profile information necessary for account functionality:
               </p>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground pl-2">
                 <li>
-                  <strong className="text-foreground">Internet Access:</strong> Required for authentication, uploads, downloads, and content synchronization.
+                  <strong className="text-foreground">Name (Display Name):</strong> Used to personalize your account profile, display uploader attribution on shared study materials, and identify administrators in moderation workflows.
                 </li>
                 <li>
-                  <strong className="text-foreground">Notification Permissions:</strong> Required to deliver important updates and account-related alerts.
+                  <strong className="text-foreground">Email Address:</strong> Used to establish your unique user profile, verify administrative access roles, and deliver essential account-related communication.
                 </li>
                 <li>
-                  <strong className="text-foreground">File Access Permissions:</strong> Required where necessary for uploading or downloading academic resources.
+                  <strong className="text-foreground">Profile Photo URL:</strong> Used solely to display your avatar within the navigation bar and dashboard interface.
+                </li>
+                <li>
+                  <strong className="text-foreground">Google / Firebase User ID (UID):</strong> Used as a secure, unique internal identifier to associate your account with your uploaded notes, permissions, and session records.
                 </li>
               </ul>
               <p className="text-muted-foreground">
-                Permissions are only used for their intended functionality and are not accessed unnecessarily.
+                The current implementation of Campus Pages only requests standard authentication scopes (<code className="text-xs bg-accent/40 text-primary px-1.5 py-0.5 rounded">openid</code>, <code className="text-xs bg-accent/40 text-primary px-1.5 py-0.5 rounded">profile</code>, <code className="text-xs bg-accent/40 text-primary px-1.5 py-0.5 rounded">email</code>). The application does not request access to Google Classroom, Gmail, Google Drive, or other sensitive Google Workspace API scopes.
               </p>
             </section>
 
-            {/* Section 9 */}
+            {/* Section 3: Google User Data Use & Limited Use Compliance */}
             <section className="space-y-3">
               <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
                 <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                Children's Privacy
+                3. Google User Data Use & Limited Use Compliance
               </h2>
               <p className="text-muted-foreground">
-                Campus Pages is not intended or targeted for children under 13 years of age. We do not intentionally collect personal profiles of individuals under this age group. If we discover that a user under 13 has supplied us with personal info, we will take immediate steps to remove their record from our Firebase databases.
+                Google user data is used exclusively to provide and improve user-facing features of Campus Pages, including authentication, user profile management, resource upload attribution, and administrative moderation.
               </p>
+              <div className="p-4 rounded-xl bg-accent/20 border border-primary/30 text-neutral-200 space-y-2">
+                <p className="font-semibold text-white text-sm">
+                  Google API Services User Data Policy Disclosure:
+                </p>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  Campus Pages's use and transfer to any other app of information received from Google APIs will adhere to the{' '}
+                  <a
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline font-medium hover:text-primary/80 transition-colors"
+                  >
+                    Google API Services User Data Policy
+                  </a>
+                  , including the Limited Use requirements.
+                </p>
+              </div>
             </section>
 
-            {/* Section 10 */}
+            {/* Section 4: Data Sharing & Third-Party Service Providers */}
             <section className="space-y-3">
               <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
                 <span className="h-5 w-1 bg-primary rounded-full inline-block" />
-                Changes To This Policy
+                4. Data Sharing & Infrastructure Processors
               </h2>
               <p className="text-muted-foreground">
-                This privacy policy may be modified periodically. We recommend checking this page regularly to review any changes. Modifications become effective immediately upon posting to this page.
+                Campus Pages does not sell, rent, lease, trade, or disclose Google user data or personal information to third-party advertising networks, data brokers, or commercial resellers.
+              </p>
+              <p className="text-muted-foreground">
+                To operate our cloud infrastructure, data is processed by trusted service providers strictly to deliver application functionality:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground pl-2">
+                <li>
+                  <strong className="text-foreground">Google Firebase Authentication:</strong> Manages secure user authentication tokens and sign-in sessions.
+                </li>
+                <li>
+                  <strong className="text-foreground">Google Cloud Firestore:</strong> Secure NoSQL cloud database storing user profiles, resource metadata, and permission records.
+                </li>
+                <li>
+                  <strong className="text-foreground">Google Firebase Cloud Storage:</strong> Cloud file storage hosting uploaded study documents and PDFs.
+                </li>
+                <li>
+                  <strong className="text-foreground">Google Cloud Functions:</strong> Serverless backend handling administrative role management and audit logging.
+                </li>
+              </ul>
+            </section>
+
+            {/* Section 5: Prohibited Uses of Data */}
+            <section className="space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
+                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
+                5. Prohibited Uses of Google User Data
+              </h2>
+              <p className="text-muted-foreground">
+                We strictly limit the use of Google user data to its disclosed purposes. Google user data is never used for:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground pl-2">
+                <li>Serving personalized, targeted, or behavioral advertisements.</li>
+                <li>Retargeting or cross-platform ad tracking.</li>
+                <li>Sale, rental, or brokerage to third parties.</li>
+                <li>Determining creditworthiness or lending eligibility.</li>
+                <li>Training generalized artificial intelligence (AI) or machine learning (ML) models.</li>
+              </ul>
+            </section>
+
+            {/* Section 6: Data Retention & Account Deletion */}
+            <section className="space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
+                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
+                6. Data Retention & Account Deletion
+              </h2>
+              <p className="text-muted-foreground">
+                Account information and Google-derived profile data are retained for as long as your Campus Pages account remains active, and as reasonably necessary to fulfill the operational purposes described in this policy, maintain platform security, comply with legal obligations, prevent fraud or abuse, and resolve disputes.
+              </p>
+              <p className="text-muted-foreground">
+                Users can request permanent deletion of their account and associated personal data at any time by contacting our team at{' '}
+                <a href="mailto:pratyush.deve@gmail.com" className="text-primary hover:underline font-medium">
+                  pratyush.deve@gmail.com
+                </a>
+                .
+              </p>
+              <p className="text-muted-foreground">
+                When an account deletion request is processed:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground pl-2">
+                <li>Your user account is permanently deleted from Firebase Authentication.</li>
+                <li>Your user profile document in Firestore is updated to a deleted status, disconnecting personal identifiers.</li>
+                <li>Academic resources (such as lecture notes or past papers) uploaded for public community benefit may remain preserved on the platform without personal attribution to ensure continuity for students.</li>
+                <li>Administrative audit logs may be retained as required for security auditing, fraud prevention, and platform compliance.</li>
+              </ul>
+            </section>
+
+            {/* Section 7: Access Revocation via Google */}
+            <section className="space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
+                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
+                7. Access Revocation via Google Account Settings
+              </h2>
+              <p className="text-muted-foreground">
+                You can review, manage, or immediately revoke Campus Pages's access to your Google account at any time through Google's centralized security dashboard:
+              </p>
+              <div className="p-4 rounded-xl bg-accent/20 border border-border/60">
+                <p className="text-sm font-semibold text-foreground mb-1">
+                  Manage Connected Google Apps & Permissions:
+                </p>
+                <a
+                  href="https://myaccount.google.com/permissions"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs sm:text-sm text-primary underline font-medium hover:text-primary/80 transition-colors break-all"
+                >
+                  https://myaccount.google.com/permissions
+                </a>
+              </div>
+            </section>
+
+            {/* Section 8: User-Uploaded Content & Academic Materials */}
+            <section className="space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
+                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
+                8. User-Uploaded Content & Intellectual Property
+              </h2>
+              <p className="text-muted-foreground">
+                Campus Pages operates as a community academic sharing hub. Users are responsible for the study materials they choose to upload and must ensure they have appropriate rights to share academic documents. Campus Pages does not claim ownership of user-uploaded academic content, and creator credits remain with their respective contributors.
               </p>
             </section>
 
-            {/* Section 11 */}
+            {/* Section 9: Data Security */}
+            <section className="space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
+                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
+                9. Data Security
+              </h2>
+              <p className="text-muted-foreground">
+                We implement technical and organizational security measures to protect your data, including HTTPS/TLS encryption in transit, Firebase Authentication session tokens, Cloud Firestore security rules, role-based access control (RBAC), and restricted administrative access. While we strive to use standard commercial practices to safeguard your information, no transmission over the internet can be guaranteed to be 100% secure.
+              </p>
+            </section>
+
+            {/* Section 10: Platform & Device Permissions */}
+            <section className="space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
+                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
+                10. Platform & Device Permissions
+              </h2>
+              <p className="text-muted-foreground">
+                Campus Pages may utilize standard platform capabilities to provide core functionality:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-muted-foreground pl-2">
+                <li>
+                  <strong className="text-foreground">Web Application:</strong> Requires network access to communicate with Firebase cloud services and local file selector access when you choose to upload academic files or PDFs.
+                </li>
+                <li>
+                  <strong className="text-foreground">Mobile Application (if applicable):</strong> May request network connectivity for syncing materials and notification permissions to deliver study updates.
+                </li>
+              </ul>
+            </section>
+
+            {/* Section 11: Children's Privacy */}
+            <section className="space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
+                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
+                11. Children's Privacy
+              </h2>
+              <p className="text-muted-foreground">
+                Campus Pages is designed for university and college students and is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If we discover that a child under 13 has provided personal information, we will take prompt steps to delete that information from our servers.
+              </p>
+            </section>
+
+            {/* Section 12: Changes to this Policy */}
+            <section className="space-y-3">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
+                <span className="h-5 w-1 bg-primary rounded-full inline-block" />
+                12. Changes to This Privacy Policy
+              </h2>
+              <p className="text-muted-foreground">
+                We may update this Privacy Policy periodically to reflect changes in our service or legal obligations. When updates occur, the "Last Updated" date at the top of this page will be revised. We encourage users to review this policy periodically.
+              </p>
+            </section>
+
+            {/* Section 13: Contact Us */}
             <section className="space-y-4 pt-4 border-t border-border/40">
               <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5 font-heading">
                 <Mail className="h-5 w-5 text-primary" />
