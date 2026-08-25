@@ -179,7 +179,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
               </div>
               {sidebarOpen && (
                 <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-primary to-violet-500 bg-clip-text text-transparent truncate font-heading">
-                  NotesSharing
+                  Campus Pages
                 </span>
               )}
             </div>
