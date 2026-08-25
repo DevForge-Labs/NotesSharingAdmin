@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Sparkles, ShieldCheck } from 'lucide-react';
+import { Sparkles, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export const Login: React.FC = () => {
   const { loginWithGoogle, loading } = useAuth();
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    document.title = 'Admin Login — Campus Pages';
+  }, []);
 
   const handleGoogleSignIn = async () => {
     setErrorMsg('');
@@ -31,12 +36,20 @@ export const Login: React.FC = () => {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] opacity-20" />
 
         <div className="relative z-10 p-12 max-w-lg text-white">
+          <Link 
+            to="/" 
+            className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-white transition-colors uppercase tracking-wider mb-8 group"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            Back to Homepage
+          </Link>
+
           <div className="flex items-center gap-2 mb-6">
             <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg">
               <Sparkles className="h-5 w-5" />
             </div>
             <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-primary to-violet-400 bg-clip-text text-transparent font-heading">
-              NotesSharing
+              Campus Pages
             </span>
           </div>
 
@@ -60,13 +73,23 @@ export const Login: React.FC = () => {
         
         {/* Fine print */}
         <div className="absolute bottom-6 left-12 text-xs text-muted-foreground/60">
-          © {new Date().getFullYear()} NotesSharing Foundation. All rights reserved.
+          © {new Date().getFullYear()} Campus Pages. All rights reserved.
         </div>
       </div>
 
       {/* Right Login Form Panel */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-accent/5">
         <div className="w-full max-w-md animate-fade-in">
+          <div className="lg:hidden mb-4">
+            <Link 
+              to="/" 
+              className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wider group"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              Back to Homepage
+            </Link>
+          </div>
+
           <Card className="border-border bg-card/60 backdrop-blur-md shadow-2xl">
             <CardHeader className="space-y-1">
               <div className="lg:hidden flex items-center gap-2 mb-4 justify-center">
@@ -74,14 +97,14 @@ export const Login: React.FC = () => {
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-primary to-violet-500 bg-clip-text text-transparent font-heading">
-                  NotesSharing
+                  Campus Pages
                 </span>
               </div>
               <CardTitle className="text-2xl font-bold tracking-tight text-center lg:text-left">
                 Admin Authentication
               </CardTitle>
               <CardDescription className="text-center lg:text-left">
-                Sign in with your corporate credential credentials to access the panel.
+                Sign in with your corporate credentials to access the panel.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-2">

@@ -23,7 +23,7 @@ export const Settings: React.FC = () => {
   const [isSaved, setIsSaved] = useState(false);
 
   // General Settings state mockup
-  const [siteName, setSiteName] = useState('NotesSharing Platform');
+  const [siteName, setSiteName] = useState('Campus Pages Platform');
   const [pageLimit, setPageLimit] = useState('25');
   const [systemLogs, setSystemLogs] = useState('Enabled');
 

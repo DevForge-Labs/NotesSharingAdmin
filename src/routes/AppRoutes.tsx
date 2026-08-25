@@ -3,9 +3,13 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 
-// Direct Page Imports
+// Public Page Imports
+import { LandingPage } from '@/pages/LandingPage';
+import { PrivacyPolicy } from '@/pages/PrivacyPolicy';
 import { Login } from '@/pages/Login';
 import { Unauthorized } from '@/pages/Unauthorized';
+
+// Admin Page Imports
 import { Dashboard } from '@/pages/Dashboard';
 import { Notes } from '@/pages/Notes';
 import { Assignments } from '@/pages/Assignments';
@@ -41,35 +45,107 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      {/* Public Routes */}
+      {/* Public Pages */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/admin" element={<Navigate to="/login" replace />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
 
-      {/* Admin Panel Layout Wrapped Routes (Protected) */}
+      {/* Protected Admin Routes */}
       <Route
-        path="/*"
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <DashboardLayout>
-              <Routes>
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="notes" element={<Notes />} />
-                <Route path="assignments" element={<Assignments />} />
-                <Route path="pyqs" element={<Pyqs />} />
-                <Route path="videos" element={<Videos />} />
-                <Route path="cheatsheets" element={<Cheatsheets />} />
-                <Route path="users" element={<Users />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="reports" element={<ReportsPage />} />
-                
-                {/* Fallbacks */}
-                <Route path="" element={<Navigate to="/dashboard" replace />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
+              <Dashboard />
             </DashboardLayout>
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/notes"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Notes />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/assignments"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Assignments />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pyqs"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Pyqs />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/videos"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Videos />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cheatsheets"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Cheatsheets />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Users />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Settings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <ReportsPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Unknown Routes Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
