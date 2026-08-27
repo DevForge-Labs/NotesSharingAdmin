@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 
@@ -20,9 +20,10 @@ import { Users } from '@/pages/Users';
 import { Settings } from '@/pages/Settings';
 import { ReportsPage } from '@/pages/ReportsPage';
 
-// Protected Route Wrapper Component
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// Root Protected Admin Layout Component
+const ProtectedLayout: React.FC = () => {
   const { user, isAdmin, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -36,10 +37,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   if (!user || !isAdmin) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <DashboardLayout>
+      <Outlet />
+    </DashboardLayout>
+  );
 };
 
 export const AppRoutes: React.FC = () => {
@@ -52,97 +57,18 @@ export const AppRoutes: React.FC = () => {
       <Route path="/admin" element={<Navigate to="/login" replace />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
 
-      {/* Protected Admin Routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Dashboard />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/notes"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Notes />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/assignments"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Assignments />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/pyqs"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Pyqs />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/videos"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Videos />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/cheatsheets"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Cheatsheets />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/users"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Users />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Settings />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reports"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <ReportsPage />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
+      {/* Protected Admin Routes (Rendered inside persistent ProtectedLayout & DashboardLayout) */}
+      <Route element={<ProtectedLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/notes" element={<Notes />} />
+        <Route path="/assignments" element={<Assignments />} />
+        <Route path="/pyqs" element={<Pyqs />} />
+        <Route path="/videos" element={<Videos />} />
+        <Route path="/cheatsheets" element={<Cheatsheets />} />
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/users" element={<Users />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
 
       {/* Unknown Routes Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

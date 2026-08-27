@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { 
   User, 
   signInWithPopup, 
@@ -28,11 +28,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
 
-  const checkUserAdminStatus = async (firebaseUser: User): Promise<{ hasAdminAccess: boolean; hasSuperAdminAccess: boolean }> => {
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
+
+  const checkUserAdminStatus = useCallback(async (firebaseUser: User): Promise<{ hasAdminAccess: boolean; hasSuperAdminAccess: boolean }> => {
     try {
-      // 1. Check Custom Claims first
-      const tokenResult = await firebaseUser.getIdTokenResult(true);
+      // 1. Check Custom Claims first (using cached token by default for fast resolution)
+      const tokenResult = await firebaseUser.getIdTokenResult();
       const claims = tokenResult.claims;
       
       let hasAdminClaim = !!claims.admin;
@@ -68,35 +73,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Error checking user admin status:", error);
       return { hasAdminAccess: false, hasSuperAdminAccess: false };
     }
-  };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setLoading(true);
-      if (firebaseUser) {
-        const { hasAdminAccess, hasSuperAdminAccess } = await checkUserAdminStatus(firebaseUser);
+      try {
+        if (firebaseUser) {
+          const { hasAdminAccess, hasSuperAdminAccess } = await checkUserAdminStatus(firebaseUser);
 
-        if (hasAdminAccess) {
-          setUser(firebaseUser);
-          setIsAdmin(true);
-          setIsSuperAdmin(hasSuperAdminAccess);
+          if (hasAdminAccess) {
+            setUser(firebaseUser);
+            setIsAdmin(true);
+            setIsSuperAdmin(hasSuperAdminAccess);
+          } else {
+            await firebaseSignOut(auth);
+            setUser(null);
+            setIsAdmin(false);
+            setIsSuperAdmin(false);
+            navigateRef.current('/unauthorized');
+          }
         } else {
-          await firebaseSignOut(auth);
           setUser(null);
           setIsAdmin(false);
           setIsSuperAdmin(false);
-          navigate('/unauthorized');
         }
-      } else {
+      } catch (err) {
+        console.error("Auth state change error:", err);
         setUser(null);
         setIsAdmin(false);
         setIsSuperAdmin(false);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [navigate]);
+  }, [checkUserAdminStatus]);
 
   const loginWithGoogle = async () => {
     setLoading(true);
@@ -110,13 +122,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(firebaseUser);
         setIsAdmin(true);
         setIsSuperAdmin(hasSuperAdminAccess);
-        navigate('/dashboard');
+        setLoading(false);
+        navigateRef.current('/dashboard');
       } else {
         await firebaseSignOut(auth);
         setUser(null);
         setIsAdmin(false);
         setIsSuperAdmin(false);
-        navigate('/unauthorized');
+        setLoading(false);
+        navigateRef.current('/unauthorized');
       }
     } catch (error) {
       console.error("Google login failed:", error);
@@ -132,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setIsAdmin(false);
       setIsSuperAdmin(false);
-      navigate('/login');
+      navigateRef.current('/login');
     } catch (error) {
       console.error("Signout failed:", error);
     } finally {

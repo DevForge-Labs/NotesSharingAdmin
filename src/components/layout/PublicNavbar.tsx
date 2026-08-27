@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Sparkles, Menu, X, Shield, BookOpen, FileText } from 'lucide-react';
+import { Menu, X, Shield, BookOpen, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import logoImg from '@/assets/logo.png';
 
 export const PublicNavbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -18,9 +19,11 @@ export const PublicNavbar: React.FC = () => {
           className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg p-1"
           aria-label="Campus Pages Home"
         >
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary via-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-md shadow-primary/20 group-hover:scale-105 transition-transform">
-            <Sparkles className="h-4 w-4" />
-          </div>
+          <img 
+            src={logoImg} 
+            alt="Campus Pages Logo" 
+            className="h-9 w-9 rounded-xl object-contain shadow-md shadow-primary/10 group-hover:scale-105 transition-transform" 
+          />
           <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-neutral-100 to-neutral-400 bg-clip-text text-transparent font-heading">
             Campus Pages
           </span>

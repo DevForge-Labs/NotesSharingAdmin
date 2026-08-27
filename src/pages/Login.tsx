@@ -1,17 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Sparkles, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import logoImg from '@/assets/logo.png';
 
 export const Login: React.FC = () => {
-  const { loginWithGoogle, loading } = useAuth();
+  const { user, isAdmin, loginWithGoogle, loading } = useAuth();
   const [errorMsg, setErrorMsg] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     document.title = 'Admin Login — Campus Pages';
   }, []);
+
+  useEffect(() => {
+    if (!loading && user && isAdmin) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, isAdmin, loading, navigate]);
 
   const handleGoogleSignIn = async () => {
     setErrorMsg('');
@@ -45,9 +53,11 @@ export const Login: React.FC = () => {
           </Link>
 
           <div className="flex items-center gap-2 mb-6">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg">
-              <Sparkles className="h-5 w-5" />
-            </div>
+            <img
+              src={logoImg}
+              alt="Campus Pages Logo"
+              className="h-10 w-10 rounded-xl object-contain shadow-lg"
+            />
             <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-primary to-violet-400 bg-clip-text text-transparent font-heading">
               Campus Pages
             </span>
@@ -93,9 +103,11 @@ export const Login: React.FC = () => {
           <Card className="border-border bg-card/60 backdrop-blur-md shadow-2xl">
             <CardHeader className="space-y-1">
               <div className="lg:hidden flex items-center gap-2 mb-4 justify-center">
-                <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
-                  <Sparkles className="h-4 w-4" />
-                </div>
+                <img
+                  src={logoImg}
+                  alt="Campus Pages Logo"
+                  className="h-8 w-8 rounded-lg object-contain shadow-md"
+                />
                 <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-primary to-violet-500 bg-clip-text text-transparent font-heading">
                   Campus Pages
                 </span>

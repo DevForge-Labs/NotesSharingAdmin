@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, Shield, Heart } from 'lucide-react';
+import { Shield, Heart } from 'lucide-react';
+import logoImg from '@/assets/logo.png';
 
 export const PublicFooter: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -12,9 +13,11 @@ export const PublicFooter: React.FC = () => {
           {/* Brand Col */}
           <div className="md:col-span-2 space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary via-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
-                <Sparkles className="h-4 w-4" />
-              </div>
+              <img 
+                src={logoImg} 
+                alt="Campus Pages Logo" 
+                className="h-8 w-8 rounded-lg object-contain shadow-sm" 
+              />
               <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent font-heading">
                 Campus Pages
               </span>

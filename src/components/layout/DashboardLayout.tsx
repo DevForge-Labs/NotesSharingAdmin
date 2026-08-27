@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, Link, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import logoImg from '@/assets/logo.png';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { reportService } from '@/services/reportService';
@@ -61,7 +62,7 @@ interface SidebarItem {
   icon: React.ReactNode;
 }
 
-export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const DashboardLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const { user: authUser, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -173,16 +174,22 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         {/* Sidebar Header */}
         <div>
           <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-md shrink-0">
-                <Sparkles className="h-4 w-4 animate-pulse" />
-              </div>
+            <Link
+              to="/"
+              className="flex items-center gap-2 overflow-hidden group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-lg transition-opacity hover:opacity-90"
+              title="Go to Campus Pages Home"
+            >
+              <img
+                src={logoImg}
+                alt="Campus Pages Logo"
+                className="h-8 w-8 rounded-lg object-contain shrink-0 shadow-sm"
+              />
               {sidebarOpen && (
-                <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-primary to-violet-500 bg-clip-text text-transparent truncate font-heading">
+                <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-primary to-violet-500 bg-clip-text text-transparent truncate font-heading group-hover:from-primary/90 group-hover:to-violet-400">
                   Campus Pages
                 </span>
               )}
-            </div>
+            </Link>
             
             {/* Collapse button on large viewports */}
             <Button
@@ -458,7 +465,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         {/* Content Container */}
         <main className="flex-1 overflow-y-auto p-6 bg-accent/10 focus:outline-none">
           <div className="max-w-7xl mx-auto animate-fade-in">
-            {children}
+            {children || <Outlet />}
           </div>
         </main>
       </div>
