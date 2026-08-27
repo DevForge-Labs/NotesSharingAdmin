@@ -146,8 +146,13 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
 
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
-      if (file.type !== 'application/pdf') {
-        if (showToast) showToast('Only PDF files are supported.', 'error');
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const isPdf = file.type === 'application/pdf' || ext === 'pdf';
+      const isPpt = ext === 'ppt' || file.type === 'application/vnd.ms-powerpoint';
+      const isPptx = ext === 'pptx' || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+      if (!isPdf && !isPpt && !isPptx) {
+        if (showToast) showToast('Only PDF, PPT, and PPTX files are supported.', 'error');
         continue;
       }
 
@@ -174,7 +179,9 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
         isExpanded: false
       });
 
-      filesToAnalyze.push({ id: generatedId, file });
+      if (isPdf) {
+        filesToAnalyze.push({ id: generatedId, file });
+      }
     }
 
     if (newItems.length > 0) {
@@ -299,7 +306,10 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
         const docId = item.id;
         const cleanSubjectId = item.subject.toLowerCase();
         const fileExtension = item.file.name.substring(item.file.name.lastIndexOf('.') + 1).toLowerCase() || 'pdf';
-        const storagePath = `cheatsheets/${semester.trim()}/${cleanSubjectId}-cheatsheet-${docId}/${item.file.name}`;
+        const isPptx = fileExtension === 'ppt' || fileExtension === 'pptx';
+        const storagePath = isPptx
+          ? `cheatsheets/${semester.trim()}/${cleanSubjectId}-cheatsheet-${docId}/original/${item.file.name}`
+          : `cheatsheets/${semester.trim()}/${cleanSubjectId}-cheatsheet-${docId}/${item.file.name}`;
 
         const storageRef = ref(storage, storagePath);
         const uploadTask = uploadBytesResumable(storageRef, item.file);
@@ -324,8 +334,12 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
           );
         });
 
+        const mimeType = isPptx
+          ? (fileExtension === 'ppt' ? 'application/vnd.ms-powerpoint' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+          : (item.file.type || 'application/pdf');
+
         const docRef = doc(db, 'cheatsheets', docId);
-        const docData = {
+        const docData: Record<string, any> = {
           documentId: docId,
           title: item.title.trim(),
           description: item.description.trim(),
@@ -354,6 +368,15 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
           fileUrls: [downloadUrl],
           fileSize: item.file.size,
           fileExtension: fileExtension,
+          processingStatus: isPptx ? 'PROCESSING' : 'READY',
+          ...(isPptx ? {
+            originalFileExtension: fileExtension,
+            originalMimeType: mimeType,
+            originalStoragePath: storagePath,
+            originalStoragePaths: [storagePath],
+            originalFileUrl: downloadUrl,
+            originalFileUrls: [downloadUrl],
+          } : {}),
           isVerified: false,
           tags: item.topics || [],
           topics: item.topics || [],
@@ -362,8 +385,8 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
           aiModel: item.aiModel || null,
           aiVersion: item.aiVersion || null,
           analysisDurationMs: item.analysisDurationMs || null,
-          fileType: fileExtension,
-          mimeType: item.file.type || 'application/pdf',
+          fileType: isPptx ? 'document' : 'pdf',
+          mimeType: mimeType,
           thumbnailUrl: '',
           thumbnailGenerated: false,
           attachmentCount: 1,
@@ -512,12 +535,12 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
             ref={fileInputRef}
             onChange={(e) => handleAddFiles(e.target.files)}
             multiple
-            accept="application/pdf"
+            accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
             className="hidden"
           />
           <Upload className="h-7 w-7 mx-auto mb-2 text-violet-500 animate-bounce" />
-          <p className="text-xs font-semibold text-foreground">Drag and drop PDF cheat sheets here</p>
-          <p className="text-xs text-muted-foreground mt-1">or click to browse local files (PDF only)</p>
+          <p className="text-xs font-semibold text-foreground">Drag and drop PDF or PPT/PPTX cheat sheets here</p>
+          <p className="text-xs text-muted-foreground mt-1">or click to browse local files (.pdf, .ppt, .pptx)</p>
         </div>
 
         {/* AI Analysis Summary Banner */}

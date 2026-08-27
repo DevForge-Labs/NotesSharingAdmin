@@ -154,8 +154,13 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
     const filesToAnalyze: { id: string; file: File }[] = [];
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
-      if (file.type !== 'application/pdf') {
-        if (showToast) showToast('Only PDF files are supported.', 'error');
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const isPdf = file.type === 'application/pdf' || ext === 'pdf';
+      const isPpt = ext === 'ppt' || file.type === 'application/vnd.ms-powerpoint';
+      const isPptx = ext === 'pptx' || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+      if (!isPdf && !isPpt && !isPptx) {
+        if (showToast) showToast('Only PDF, PPT, and PPTX files are supported.', 'error');
         continue;
       }
 
@@ -182,7 +187,9 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
         isExpanded: false
       });
 
-      filesToAnalyze.push({ id: generatedId, file });
+      if (isPdf) {
+        filesToAnalyze.push({ id: generatedId, file });
+      }
     }
 
     if (newItems.length > 0) {
@@ -314,10 +321,13 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
         const cleanSubjectId = item.subject.toLowerCase();
         const normalizedExamType = getNormalizedExamType(item.examType);
         const fileExtension = item.file.name.substring(item.file.name.lastIndexOf('.') + 1).toLowerCase() || 'pdf';
+        const isPptx = fileExtension === 'ppt' || fileExtension === 'pptx';
         const safeSubject = item.displaySubject.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '');
         const standardizedFileName = `${safeSubject}.${normalizedExamType}.${item.examYear}.${fileExtension}`;
         const standardizedTitle = `${safeSubject}.${normalizedExamType}.${item.examYear}`;
-        const storagePath = `pyqs/${semester.trim()}/${cleanSubjectId}-pyq-${docId}/${standardizedFileName}`;
+        const storagePath = isPptx
+          ? `pyqs/${semester.trim()}/${cleanSubjectId}-pyq-${docId}/original/${standardizedFileName}`
+          : `pyqs/${semester.trim()}/${cleanSubjectId}-pyq-${docId}/${standardizedFileName}`;
 
         // Reference to Storage location
         const storageRef = ref(storage, storagePath);
@@ -344,9 +354,13 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
           );
         });
 
+        const mimeType = isPptx
+          ? (fileExtension === 'ppt' ? 'application/vnd.ms-powerpoint' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+          : (item.file.type || 'application/pdf');
+
         // Save PYQ document metadata in Firestore
         const docRef = doc(db, 'pyqs', docId);
-        const docData = {
+        const docData: Record<string, any> = {
           documentId: docId,
           title: standardizedTitle,
           description: '',
@@ -375,6 +389,15 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
           fileUrls: [downloadUrl],
           fileSize: item.file.size,
           fileExtension: fileExtension,
+          processingStatus: isPptx ? 'PROCESSING' : 'READY',
+          ...(isPptx ? {
+            originalFileExtension: fileExtension,
+            originalMimeType: mimeType,
+            originalStoragePath: storagePath,
+            originalStoragePaths: [storagePath],
+            originalFileUrl: downloadUrl,
+            originalFileUrls: [downloadUrl],
+          } : {}),
           isVerified: false,
           tags: item.topics || [],
           topics: item.topics || [],
@@ -383,8 +406,8 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
           aiModel: item.aiModel || null,
           aiVersion: item.aiVersion || null,
           analysisDurationMs: item.analysisDurationMs || null,
-          fileType: fileExtension,
-          mimeType: item.file.type || 'application/pdf',
+          fileType: isPptx ? 'document' : 'pdf',
+          mimeType: mimeType,
           thumbnailUrl: '',
           thumbnailGenerated: false,
           attachmentCount: 1,
@@ -558,14 +581,14 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
           <input
             type="file"
             multiple
-            accept="application/pdf"
+            accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
             ref={fileInputRef}
             onChange={(e) => handleAddFiles(e.target.files)}
             className="hidden"
           />
           <Upload className={`h-10 w-10 mb-3 transition-transform ${isDragging ? 'animate-bounce text-violet-400' : 'text-violet-500'}`} />
-          <h3 className="font-bold text-foreground text-sm">Drag & Drop PDF PYQs here</h3>
-          <p className="text-xs text-muted-foreground mt-1">or click to browse local files (PDF only)</p>
+          <h3 className="font-bold text-foreground text-sm">Drag & Drop PDF or PPT/PPTX PYQs here</h3>
+          <p className="text-xs text-muted-foreground mt-1">or click to browse local files (.pdf, .ppt, .pptx)</p>
         </div>
 
         {/* AI Analysis Summary Banner */}

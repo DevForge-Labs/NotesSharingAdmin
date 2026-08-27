@@ -151,8 +151,13 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
 
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
-      if (file.type !== 'application/pdf') {
-        if (showToast) showToast('Only PDF files are supported.', 'error');
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const isPdf = file.type === 'application/pdf' || ext === 'pdf';
+      const isPpt = ext === 'ppt' || file.type === 'application/vnd.ms-powerpoint';
+      const isPptx = ext === 'pptx' || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+      if (!isPdf && !isPpt && !isPptx) {
+        if (showToast) showToast('Only PDF, PPT, and PPTX files are supported.', 'error');
         continue;
       }
 
@@ -182,7 +187,9 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
         isExpanded: false
       });
 
-      filesToAnalyze.push({ id: generatedId, file });
+      if (isPdf) {
+        filesToAnalyze.push({ id: generatedId, file });
+      }
     }
 
     if (newItems.length > 0) {
@@ -313,7 +320,11 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
         const docId = item.id;
         const cleanSubjectId = item.subject.toLowerCase();
         const fileName = item.file.name;
-        const storagePath = `notes/${cleanSubjectId}-notes-${docId}/${fileName}`;
+        const ext = fileName.split('.').pop()?.toLowerCase() || 'pdf';
+        const isPptx = ext === 'ppt' || ext === 'pptx';
+        const storagePath = isPptx
+          ? `notes/${cleanSubjectId}-notes-${docId}/original/${fileName}`
+          : `notes/${cleanSubjectId}-notes-${docId}/${fileName}`;
 
         // Reference to Storage location
         const storageRef = ref(storage, storagePath);
@@ -340,9 +351,13 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
           );
         });
 
+        const mimeType = isPptx
+          ? (ext === 'ppt' ? 'application/vnd.ms-powerpoint' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+          : 'application/pdf';
+
         // Save note document metadata in Firestore
         const docRef = doc(db, 'notes', docId);
-        const docData = {
+        const docData: Record<string, any> = {
           documentId: docId,
           title: item.title.trim(),
           subject: cleanSubjectId,
@@ -353,15 +368,24 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
           college: college,
           documentType: 'Notes',
           type: 'Notes',
-          mimeType: 'application/pdf',
-          fileType: 'pdf',
-          fileExtension: 'pdf',
+          mimeType: mimeType,
+          fileType: isPptx ? 'document' : 'pdf',
+          fileExtension: ext,
           fileSize: item.file.size,
           fileUrl: downloadUrl,
           downloadUrl: downloadUrl,
           fileUrls: [downloadUrl],
           storagePath: storagePath,
           storagePaths: [storagePath],
+          processingStatus: isPptx ? 'PROCESSING' : 'READY',
+          ...(isPptx ? {
+            originalFileExtension: ext,
+            originalMimeType: mimeType,
+            originalStoragePath: storagePath,
+            originalStoragePaths: [storagePath],
+            originalFileUrl: downloadUrl,
+            originalFileUrls: [downloadUrl],
+          } : {}),
           isVerified: false,
           uploaderName: currentUser?.displayName || 'Platform Admin',
           uploaderId: currentUser?.uid || 'admin-uploader',
@@ -551,14 +575,14 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
           <input
             type="file"
             multiple
-            accept="application/pdf"
+            accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
             ref={fileInputRef}
             onChange={(e) => handleAddFiles(e.target.files)}
             className="hidden"
           />
           <Upload className={`h-10 w-10 mb-3 transition-transform ${isDragging ? 'animate-bounce text-violet-400' : 'text-violet-500'}`} />
-          <h3 className="font-bold text-foreground text-sm">Drag & Drop PDF notes here</h3>
-          <p className="text-xs text-muted-foreground mt-1">or click to browse local files (PDF only)</p>
+          <h3 className="font-bold text-foreground text-sm">Drag & Drop PDF or PPT/PPTX notes here</h3>
+          <p className="text-xs text-muted-foreground mt-1">or click to browse local files (.pdf, .ppt, .pptx)</p>
         </div>
 
         {/* AI Analysis Summary Banner */}

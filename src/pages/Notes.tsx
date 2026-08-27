@@ -49,7 +49,9 @@ import {
   School,
   GitBranch,
   ThumbsUp,
-  RotateCcw
+  RotateCcw,
+  Loader2,
+  XCircle
 } from 'lucide-react';
 
 interface NoteItem {
@@ -81,6 +83,8 @@ interface NoteItem {
   storagePath?: string;
   mimeType?: string;
   thumbnailUrl?: string;
+  processingStatus?: string;
+  processingError?: string;
   temp?: boolean;
 }
 
@@ -103,6 +107,7 @@ const getSemesterNumber = (semester?: string): string => {
 const getFileIcon = (mimeType?: string) => {
   const mime = (mimeType || '').toLowerCase();
   if (mime.includes('pdf')) return <FileText className="h-10 w-10 text-rose-500 shrink-0" />;
+  if (mime.includes('presentation') || mime.includes('powerpoint') || mime.includes('ppt')) return <FileText className="h-10 w-10 text-orange-500 shrink-0" />;
   if (mime.includes('word') || mime.includes('officedocument')) return <FileText className="h-10 w-10 text-blue-500 shrink-0" />;
   if (mime.includes('zip') || mime.includes('rar')) return <Layers className="h-10 w-10 text-amber-500 shrink-0" />;
   return <File className="h-10 w-10 text-primary/75 shrink-0" />;
@@ -1360,15 +1365,31 @@ export const Notes: React.FC = () => {
                     {selectedNote.displaySubject || selectedNote.subject || 'No Subject Area'}
                   </p>
 
-                  <div
-                    className={`flex items-center gap-1 mt-2 text-xs font-bold px-2.5 py-0.5 rounded-full w-max ${
-                      selectedNote.isVerified
-                        ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20'
-                        : 'text-amber-500 bg-amber-500/10 border border-amber-500/20'
-                    }`}
-                  >
-                    {selectedNote.isVerified ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                    {selectedNote.isVerified ? 'Verified Document' : 'Pending Verification'}
+                  <div className="flex items-center gap-2 flex-wrap mt-2">
+                    <div
+                      className={`flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full w-max ${
+                        selectedNote.isVerified
+                          ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20'
+                          : 'text-amber-500 bg-amber-500/10 border border-amber-500/20'
+                      }`}
+                    >
+                      {selectedNote.isVerified ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                      {selectedNote.isVerified ? 'Verified Document' : 'Pending Verification'}
+                    </div>
+
+                    {selectedNote.processingStatus === 'PROCESSING' && (
+                      <div className="flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full w-max text-amber-500 bg-amber-500/10 border border-amber-500/20">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Converting to PDF...
+                      </div>
+                    )}
+
+                    {selectedNote.processingStatus === 'FAILED' && (
+                      <div className="flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full w-max text-red-500 bg-red-500/10 border border-red-500/20">
+                        <XCircle className="h-3 w-3" />
+                        Conversion Failed: {selectedNote.processingError || 'Invalid presentation'}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
