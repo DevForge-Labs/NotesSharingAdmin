@@ -95,9 +95,10 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
 
   useEffect(() => {
     if (!isOpen) {
-      ai.cancelAnalysis();
+      ai.clearHistoryCache();
       return;
     }
+    ai.clearHistoryCache();
     reloadCatalog();
   }, [isOpen]);
 
@@ -270,6 +271,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
   // Remove file from queue
   const removeFile = (id: string) => {
     setFiles(prev => prev.filter(item => item.id !== id));
+    ai.removeFileState(id);
   };
 
   // Toggle item expanded state
@@ -285,7 +287,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
   // Reset fields on close
   const handleClose = () => {
     if (isUploading) return;
-    ai.cancelAnalysis();
+    ai.clearHistoryCache();
     setBranch('');
     setSemester('');
     setGroup('');
@@ -586,7 +588,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
         </div>
 
         {/* AI Analysis Summary Banner */}
-        {ai.isEnabled && (
+        {ai.isEnabled && files.length > 0 && (
           <AiAnalysisSummaryBanner summary={ai.summary} isProcessing={ai.isProcessing} />
         )}
 

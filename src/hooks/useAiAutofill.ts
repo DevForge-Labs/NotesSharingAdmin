@@ -53,6 +53,20 @@ export function useAiAutofill() {
     setIsProcessing(false);
   }, []);
 
+  const clearHistoryCache = useCallback(() => {
+    cancelAnalysis();
+    cacheRef.current.clear();
+    setFileStates({});
+  }, [cancelAnalysis]);
+
+  const removeFileState = useCallback((fileId: string) => {
+    setFileStates(prev => {
+      const next = { ...prev };
+      delete next[fileId];
+      return next;
+    });
+  }, []);
+
   const getFileCacheKey = (file: File): string => {
     return `${file.name}-${file.size}-${file.lastModified}`;
   };
@@ -197,6 +211,9 @@ export function useAiAutofill() {
     isProcessing,
     analyzeFiles,
     cancelAnalysis,
+    clearHistoryCache,
+    resetSession: clearHistoryCache,
+    removeFileState,
     summary
   };
 }

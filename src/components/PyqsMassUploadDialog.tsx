@@ -27,6 +27,10 @@ import { DocumentTypes } from '@/constants/documentTypes';
 import { MappedFirestoreMetadata } from '@/services/metadataMapper';
 import { getAllSubjectsFromCatalog } from '@/services/metadataParser';
 import { useUploadCatalog } from '@/hooks/useUploadCatalog';
+import JSZip from 'jszip';
+
+const MAX_ZIP_FILES = 50;
+const MAX_ZIP_UNCOMPRESSED_BYTES = 150 * 1024 * 1024; // 150 MB
 
 
 interface PyqsMassUploadDialogProps {
@@ -100,9 +104,10 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
 
   useEffect(() => {
     if (!isOpen) {
-      ai.cancelAnalysis();
+      ai.clearHistoryCache();
       return;
     }
+    ai.clearHistoryCache();
     reloadCatalog();
   }, [isOpen]);
 
@@ -120,6 +125,13 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
   const isGroupRequired = (semNum === 1 || semNum === 2);
 
   const subjects = getSubjects(college, branch, semester, group);
+
+  const currentYear = new Date().getFullYear();
+  const startYear = 2015;
+  const availableYears = Array.from(
+    { length: Math.max(1, currentYear - startYear + 1) },
+    (_, i) => currentYear - i
+  );
 
 
   const handleApplySubjectToAll = () => {
@@ -146,23 +158,128 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  // Handle addition of files
-  const handleAddFiles = (selectedFiles: FileList | null) => {
-    if (!selectedFiles) return;
+  // Helper to extract supported files from a client-side ZIP archive
+  const extractZipEntries = async (zipFile: File): Promise<{ files: File[]; ignoredCount: number }> => {
+    const zip = new JSZip();
+    let loadedZip: JSZip;
+    try {
+      loadedZip = await zip.loadAsync(zipFile);
+    } catch {
+      throw new Error(`Failed to read ZIP archive "${zipFile.name}". The file may be corrupt or invalid.`);
+    }
 
-    const newItems: UploadQueueItem[] = [];
-    const filesToAnalyze: { id: string; file: File }[] = [];
+    const extractedFiles: File[] = [];
+    let ignoredCount = 0;
+    let totalExtractedBytes = 0;
+    let totalFileCount = 0;
+
+    const entries = Object.values(loadedZip.files);
+
+    for (const entry of entries) {
+      if (entry.dir) continue;
+
+      // Filter out macOS hidden metadata, system files, or hidden files
+      const cleanPath = entry.name.replace(/\\/g, '/');
+      const pathParts = cleanPath.split('/');
+      const fileName = pathParts[pathParts.length - 1];
+
+      if (!fileName || fileName.startsWith('.') || fileName.startsWith('~') || cleanPath.includes('__MACOSX/')) {
+        continue;
+      }
+
+      const ext = fileName.split('.').pop()?.toLowerCase() || '';
+      const isPdf = ext === 'pdf';
+      const isPpt = ext === 'ppt';
+      const isPptx = ext === 'pptx';
+
+      if (!isPdf && !isPpt && !isPptx) {
+        ignoredCount++;
+        continue;
+      }
+
+      totalFileCount++;
+      if (totalFileCount > MAX_ZIP_FILES) {
+        throw new Error(`ZIP archive "${zipFile.name}" exceeds the maximum limit of ${MAX_ZIP_FILES} files.`);
+      }
+
+      const blob = await entry.async('blob');
+      totalExtractedBytes += blob.size;
+
+      if (totalExtractedBytes > MAX_ZIP_UNCOMPRESSED_BYTES) {
+        throw new Error(`Extracted contents of "${zipFile.name}" exceed maximum allowed size limit (${formatFileSize(MAX_ZIP_UNCOMPRESSED_BYTES)}).`);
+      }
+
+      const mimeType = isPdf
+        ? 'application/pdf'
+        : isPpt
+        ? 'application/vnd.ms-powerpoint'
+        : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+      const file = new File([blob], fileName, {
+        type: mimeType,
+        lastModified: entry.date ? entry.date.getTime() : Date.now()
+      });
+
+      extractedFiles.push(file);
+    }
+
+    return { files: extractedFiles, ignoredCount };
+  };
+
+  // Handle addition of files (including extracting ZIP archives)
+  const handleAddFiles = async (selectedFiles: FileList | null) => {
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    const filesToProcess: File[] = [];
+
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const isZip = ext === 'zip' || file.type === 'application/zip' || file.type === 'application/x-zip-compressed' || file.type === 'application/x-zip';
       const isPdf = file.type === 'application/pdf' || ext === 'pdf';
       const isPpt = ext === 'ppt' || file.type === 'application/vnd.ms-powerpoint';
       const isPptx = ext === 'pptx' || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
-      if (!isPdf && !isPpt && !isPptx) {
-        if (showToast) showToast('Only PDF, PPT, and PPTX files are supported.', 'error');
-        continue;
+      if (isZip) {
+        try {
+          const { files: zipExtracted, ignoredCount } = await extractZipEntries(file);
+          if (zipExtracted.length === 0) {
+            if (showToast) {
+              showToast(`No supported PDF or PPT/PPTX files found in "${file.name}".`, 'error');
+            }
+            continue;
+          }
+
+          if (ignoredCount > 0 && showToast) {
+            showToast(`Extracted ${zipExtracted.length} file${zipExtracted.length > 1 ? 's' : ''} from "${file.name}" (${ignoredCount} unsupported file${ignoredCount > 1 ? 's' : ''} skipped).`, 'info');
+          } else if (showToast) {
+            showToast(`Successfully extracted ${zipExtracted.length} file${zipExtracted.length > 1 ? 's' : ''} from "${file.name}".`, 'success');
+          }
+
+          filesToProcess.push(...zipExtracted);
+        } catch (zipErr: any) {
+          console.error('ZIP extraction error:', zipErr);
+          if (showToast) {
+            showToast(zipErr.message || `Failed to extract "${file.name}".`, 'error');
+          }
+        }
+      } else if (isPdf || isPpt || isPptx) {
+        filesToProcess.push(file);
+      } else {
+        if (showToast) {
+          showToast(`Unsupported file "${file.name}". Only PDF, PPT, PPTX, and ZIP files are supported.`, 'error');
+        }
       }
+    }
+
+    if (filesToProcess.length === 0) return;
+
+    const newItems: UploadQueueItem[] = [];
+    const filesToAnalyze: { id: string; file: File }[] = [];
+
+    for (const file of filesToProcess) {
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const isPdf = file.type === 'application/pdf' || ext === 'pdf';
 
       // Check if file already in queue to avoid duplicates
       if (files.some(item => item.file.name === file.name && item.file.size === file.size)) {
@@ -270,6 +387,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
   // Remove file from queue
   const removeFile = (id: string) => {
     setFiles(prev => prev.filter(item => item.id !== id));
+    ai.removeFileState(id);
   };
 
   // Toggle item expanded state
@@ -285,7 +403,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
   // Reset fields on close
   const handleClose = () => {
     if (isUploading) return;
-    ai.cancelAnalysis();
+    ai.clearHistoryCache();
     setBranch('');
     setSemester('');
     setGroup('');
@@ -445,6 +563,16 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
     }, 1500);
   };
 
+  // Helper to determine validation issues for an individual queue item
+  const getItemValidationIssues = (item: UploadQueueItem): string[] => {
+    const issues: string[] = [];
+    if (!item.subject) issues.push('Subject is required');
+    if (!item.examType) issues.push('Exam type is required');
+    if (!item.examYear) issues.push('Year is required');
+    if (item.status === 'failed' && item.error) issues.push(item.error);
+    return issues;
+  };
+
   const completedCount = files.filter(f => f.status === 'success').length;
   const isAnyUploading = files.some(f => f.status === 'uploading');
   const overallProgressMsg = isAnyUploading 
@@ -581,18 +709,21 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
           <input
             type="file"
             multiple
-            accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            accept=".pdf,.ppt,.pptx,.zip,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/zip,application/x-zip-compressed"
             ref={fileInputRef}
-            onChange={(e) => handleAddFiles(e.target.files)}
+            onChange={(e) => {
+              handleAddFiles(e.target.files);
+              e.target.value = '';
+            }}
             className="hidden"
           />
           <Upload className={`h-10 w-10 mb-3 transition-transform ${isDragging ? 'animate-bounce text-violet-400' : 'text-violet-500'}`} />
-          <h3 className="font-bold text-foreground text-sm">Drag & Drop PDF or PPT/PPTX PYQs here</h3>
-          <p className="text-xs text-muted-foreground mt-1">or click to browse local files (.pdf, .ppt, .pptx)</p>
+          <h3 className="font-bold text-foreground text-sm">Drag & Drop PDF, PPT/PPTX, or ZIP archive here</h3>
+          <p className="text-xs text-muted-foreground mt-1">or click to browse local files (.pdf, .ppt, .pptx, .zip)</p>
         </div>
 
         {/* AI Analysis Summary Banner */}
-        {ai.isEnabled && (
+        {ai.isEnabled && files.length > 0 && (
           <AiAnalysisSummaryBanner summary={ai.summary} isProcessing={ai.isProcessing} />
         )}
 
@@ -677,18 +808,29 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
               {files.map((item) => {
                 const aiState = ai.fileStates[item.id];
-                const isNeedsReview = aiState?.status === 'needs_review';
+                const isNeedsReview = !!(ai.isEnabled && aiState?.status === 'needs_review');
+                const validationIssues = getItemValidationIssues(item);
+                const hasBlockingError = validationIssues.length > 0 && item.status !== 'success' && item.status !== 'uploading';
+
+                let cardStateClass = 'border-border/80 bg-zinc-950/80 shadow-md hover:border-border/100 hover:shadow-lg';
+                if (item.status === 'uploading') {
+                  cardStateClass = 'border-blue-500/30 bg-blue-500/[0.03] shadow-md';
+                } else if (item.status === 'success') {
+                  cardStateClass = 'border-emerald-500/30 bg-emerald-500/[0.03] shadow-md';
+                } else if (hasBlockingError) {
+                  // Red: blocking issue (takes precedence for container border and tint)
+                  cardStateClass = 'border-red-500/60 bg-red-500/[0.04] shadow-[0_0_12px_rgba(239,68,68,0.12)] hover:border-red-500/80';
+                } else if (isNeedsReview) {
+                  // Yellow: AI review required
+                  cardStateClass = 'border-amber-500/60 bg-amber-500/[0.04] shadow-[0_0_12px_rgba(245,158,11,0.12)] hover:border-amber-500/80';
+                } else if (item.isExpanded) {
+                  cardStateClass = 'border-violet-500/30 bg-violet-500/[0.03] shadow-lg';
+                }
 
                 return (
                   <div 
                     key={item.id} 
-                    className={`border rounded-lg overflow-hidden transition-all duration-200 ${
-                      isNeedsReview
-                        ? 'border-amber-500/60 bg-amber-500/[0.04] shadow-[0_0_12px_rgba(245,158,11,0.1)]'
-                        : item.isExpanded 
-                        ? 'border-violet-500/30 bg-violet-500/[0.03] shadow-lg' 
-                        : 'border-border/80 bg-zinc-950/80 shadow-md hover:border-border/100 hover:shadow-lg'
-                    }`}
+                    className={`border rounded-lg overflow-hidden transition-all duration-200 ${cardStateClass}`}
                   >
                     {/* Item Header */}
                     <div 
@@ -696,7 +838,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
                       className="flex items-center justify-between p-3 select-none hover:bg-accent/15 cursor-pointer text-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <FileText className={`h-4 w-4 shrink-0 ${hasBlockingError ? 'text-red-400' : isNeedsReview ? 'text-amber-400' : 'text-primary'}`} />
                         <div className="min-w-0 flex-1 pr-4">
                           <span className="font-semibold text-foreground truncate block" title={item.file.name}>
                             {item.file.name}
@@ -707,7 +849,18 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
+                        {/* Red Blocking Validation Badge */}
+                        {hasBlockingError && (
+                          <span 
+                            className="text-red-400 bg-red-500/15 border border-red-500/40 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1 font-bold cursor-help"
+                            title={validationIssues.join(' • ')}
+                          >
+                            <AlertCircle className="h-2.5 w-2.5 text-red-400 shrink-0" />
+                            <span>{validationIssues.length === 1 ? validationIssues[0] : `${validationIssues.length} issues to fix`}</span>
+                          </span>
+                        )}
+
                         {/* AI State Badge */}
                         {ai.isEnabled && aiState && (
                           <span className="flex items-center gap-1 font-bold">
@@ -732,8 +885,11 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
                               </span>
                             )}
                             {aiState.status === 'needs_review' && (
-                              <span className="text-amber-400 bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1 font-bold" title="AI confidence is below 70%, please verify metadata manually.">
-                                <AlertCircle className="h-2.5 w-2.5 text-amber-400" /> Needs Review
+                              <span 
+                                className="text-amber-400 bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1 font-bold cursor-help" 
+                                title="AI confidence is below 70%, please verify metadata manually."
+                              >
+                                <AlertCircle className="h-2.5 w-2.5 text-amber-400 shrink-0" /> Needs Review
                               </span>
                             )}
                             {aiState.status === 'failed' && (
@@ -746,7 +902,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
 
                         {/* Status Indicator */}
                         <span className="flex items-center gap-1 font-bold">
-                          {item.status === 'queued' && !ai.isEnabled && (
+                          {item.status === 'queued' && !ai.isEnabled && !hasBlockingError && (
                             <span className="text-zinc-400 bg-zinc-800/80 border border-zinc-700/50 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1">
                               <Clock className="h-2.5 w-2.5" /> Queued
                             </span>
@@ -817,7 +973,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
                             value={item.subject}
                             onChange={(e) => updateFileField(item.id, 'subject', e.target.value)}
                             disabled={isUploading || item.status === 'success'}
-                            className="bg-card text-foreground"
+                            className={`bg-card text-foreground ${!item.subject ? 'border-red-500/50 focus:border-red-500' : ''}`}
                           >
                             <option value="">Select Subject</option>
                             {item.subject && !subjects.some(s => s.id.toLowerCase() === item.subject.toLowerCase()) && (
@@ -840,7 +996,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
                             value={item.examType}
                             onChange={(e) => updateFileField(item.id, 'examType', e.target.value)}
                             disabled={isUploading || item.status === 'success'}
-                            className="bg-card text-foreground"
+                            className={`bg-card text-foreground ${!item.examType ? 'border-red-500/50 focus:border-red-500' : ''}`}
                           >
                             <option value="">Select Exam Type</option>
                             <option value="Midsem">Midsem</option>
@@ -856,10 +1012,10 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
                             value={item.examYear}
                             onChange={(e) => updateFileField(item.id, 'examYear', e.target.value)}
                             disabled={isUploading || item.status === 'success'}
-                            className="bg-card text-foreground"
+                            className={`bg-card text-foreground ${!item.examYear ? 'border-red-500/50 focus:border-red-500' : ''}`}
                           >
                             <option value="">Select Year</option>
-                            {Array.from({ length: 7 }, (_, i) => 2026 - i).map((yr) => (
+                            {availableYears.map((yr) => (
                               <option key={yr} value={yr}>
                                 {yr}
                               </option>

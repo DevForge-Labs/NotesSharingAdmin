@@ -93,7 +93,11 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
   } = useUploadCatalog();
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      ai.clearHistoryCache();
+      return;
+    }
+    ai.clearHistoryCache();
     reloadCatalog();
   }, [isOpen]);
 
@@ -261,6 +265,7 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
 
   const removeFile = (id: string) => {
     setFiles(prev => prev.filter(item => item.id !== id));
+    ai.removeFileState(id);
   };
 
   const toggleExpand = (id: string) => {
@@ -274,7 +279,7 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
 
   const handleClose = () => {
     if (isUploading) return;
-    ai.cancelAnalysis();
+    ai.clearHistoryCache();
     setBranch('');
     setSemester('');
     setGroup('');
@@ -544,7 +549,7 @@ export const CheatsheetsMassUploadDialog: React.FC<CheatsheetsMassUploadDialogPr
         </div>
 
         {/* AI Analysis Summary Banner */}
-        {ai.isEnabled && (
+        {ai.isEnabled && files.length > 0 && (
           <AiAnalysisSummaryBanner summary={ai.summary} isProcessing={ai.isProcessing} />
         )}
 
