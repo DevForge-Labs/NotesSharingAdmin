@@ -23,6 +23,7 @@ export interface CatalogSubject {
   id: string;
   name: string;
   shortName: string;
+  active?: boolean;
 }
 
 export function useUploadCatalog() {
@@ -231,7 +232,8 @@ export function useUploadCatalog() {
     return rawSubjects.map((s: any) => ({
       id: s.id,
       name: s.name,
-      shortName: s.shortName || s.name
+      shortName: s.shortName || s.name,
+      active: s.active !== false
     }));
   }, [activeCatalog]);
 
@@ -248,7 +250,8 @@ export function useUploadCatalog() {
               map.set(idLower, {
                 id: item.id,
                 name: item.name,
-                shortName: item.shortName || item.name
+                shortName: item.shortName || item.name,
+                active: item.active !== false
               });
             }
           }

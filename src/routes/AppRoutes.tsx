@@ -19,6 +19,7 @@ import { Videos } from '@/pages/Videos';
 import { Users } from '@/pages/Users';
 import { Settings } from '@/pages/Settings';
 import { ReportsPage } from '@/pages/ReportsPage';
+import { Subjects } from '@/pages/Subjects';
 
 // Root Protected Admin Layout Component
 const ProtectedLayout: React.FC = () => {
@@ -65,6 +66,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/pyqs" element={<Pyqs />} />
         <Route path="/videos" element={<Videos />} />
         <Route path="/cheatsheets" element={<Cheatsheets />} />
+        <Route path="/subjects" element={<Subjects />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/users" element={<Users />} />
         <Route path="/settings" element={<Settings />} />

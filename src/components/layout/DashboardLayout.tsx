@@ -24,7 +24,8 @@ import {
   Sparkles,
   Command,
   Video,
-  Flag
+  Flag,
+  BookOpen
 } from 'lucide-react';
 
 const formatRelativeTime = (val: any): string => {
@@ -133,6 +134,7 @@ export const DashboardLayout: React.FC<{ children?: React.ReactNode }> = ({ chil
     { name: 'PYQs', path: '/pyqs', icon: <Layers className="h-4 w-4" /> },
     { name: 'Videos', path: '/videos', icon: <Video className="h-4 w-4" /> },
     { name: 'Cheatsheets', path: '/cheatsheets', icon: <FileCode className="h-4 w-4" /> },
+    { name: 'Subjects', path: '/subjects', icon: <BookOpen className="h-4 w-4" /> },
     { name: 'Reports', path: '/reports', icon: <Flag className="h-4 w-4" /> },
     { name: 'Users', path: '/users', icon: <UsersIcon className="h-4 w-4" /> },
     { name: 'Settings', path: '/settings', icon: <SettingsIcon className="h-4 w-4" /> },
