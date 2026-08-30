@@ -335,6 +335,7 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
           semester: semester,
           subject: cleanSubjectId,
           displaySubject: item.displaySubject,
+          subjectId: cleanSubjectId,
           searchKey: cleanSubjectId,
           documentType: isPlaylist ? 'Playlist' : 'Video',
           type: isPlaylist ? 'Playlist' : 'Video',

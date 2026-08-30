@@ -364,6 +364,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
           title: item.title.trim(),
           subject: cleanSubjectId,
           displaySubject: item.displaySubject,
+          subjectId: cleanSubjectId,
           description: item.description.trim() || '',
           branch: branch,
           semester: semester,
