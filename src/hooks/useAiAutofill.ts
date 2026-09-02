@@ -74,7 +74,7 @@ export function useAiAutofill() {
   const analyzeFiles = useCallback(async (
     items: { id: string; file: File }[],
     documentType: DocumentType,
-    _subjectCatalogOptions: SubjectOption[],
+    subjectCatalogOptions: SubjectOption[],
     currentContext?: { college?: string; branch?: string; semester?: string },
     onItemSuccess?: (id: string, metadata: MappedFirestoreMetadata) => void
   ) => {
@@ -126,6 +126,7 @@ export function useAiAutofill() {
           file: item.file,
           documentType,
           context: currentContext,
+          subjectCatalogOptions: subjectCatalogOptions,
           onProgressStep: (stepMsg) => {
             if (stepMsg.includes('Reading PDF')) {
               updateItemState(item.id, { status: 'reading_pdf', statusMsg: stepMsg });

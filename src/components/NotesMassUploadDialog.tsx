@@ -199,7 +199,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
       if (ai.isEnabled) {
         const catalogOptions = subjects.length > 0
           ? subjects.map(s => ({ id: s.id, name: s.name }))
-          : getAllSubjectsFromCatalog();
+          : [];
 
         ai.analyzeFiles(
           filesToAnalyze,
@@ -209,18 +209,18 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
           (id: string, metadata: MappedFirestoreMetadata) => {
             setFiles(prev => prev.map(item => {
               if (item.id === id) {
-                const allSubs = getAllSubjectsFromCatalog();
-                const matchedSub = subjects.find(s => s.id.toLowerCase() === (metadata.subjectId || '').toLowerCase())
-                  || allSubs.find(s => s.id.toLowerCase() === (metadata.subjectId || '').toLowerCase());
+                const matchedSub = metadata.subjectId
+                  ? subjects.find(s => s.id.toLowerCase() === metadata.subjectId!.toLowerCase())
+                  : undefined;
                 return {
                   ...item,
                   title: metadata.title || item.title,
                   description: metadata.description || item.description,
-                  subject: metadata.subjectId || item.subject,
-                  displaySubject: matchedSub ? matchedSub.name : (metadata.displaySubject || item.displaySubject),
-                  topics: metadata.topics || [],
+                  subject: matchedSub ? matchedSub.id : '',
+                  displaySubject: matchedSub ? matchedSub.name : '',
+                  topics: metadata.topics || item.topics,
                   aiGenerated: metadata.aiGenerated,
-                  aiConfidence: metadata.confidence,
+                  aiConfidence: metadata.aiConfidence,
                   aiModel: metadata.aiModel,
                   aiVersion: metadata.aiVersion,
                   analysisDurationMs: metadata.analysisDurationMs
@@ -255,10 +255,10 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
     setFiles(prev => prev.map(item => {
       if (item.id === id) {
         if (field === 'subject') {
-          const matchedSubject = subjects.find(s => s.id === value);
+          const matchedSubject = subjects.find(s => s.id.toLowerCase() === (value || '').toLowerCase());
           return {
             ...item,
-            subject: value,
+            subject: matchedSubject ? matchedSubject.id : '',
             displaySubject: matchedSubject ? matchedSubject.name : ''
           };
         }
@@ -297,9 +297,26 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
     onClose();
   };
 
+  // Helper to determine validation issues for an individual queue item
+  const getItemValidationIssues = (item: UploadQueueItem): string[] => {
+    const issues: string[] = [];
+    if (!item.title.trim()) issues.push('Title is required');
+    if (!item.subject) {
+      issues.push('Subject is required');
+    } else if (!subjects.some(s => s.id.toLowerCase() === item.subject.toLowerCase())) {
+      issues.push('Valid catalog subject is required');
+    }
+    if (item.status === 'failed' && item.error) issues.push(item.error);
+    return issues;
+  };
+
   // Validation
   const isGlobalValid = !!branch && !!semester && (!isGroupRequired || !!group) && !!college;
-  const isQueueValid = files.length > 0 && files.every(f => !!f.title.trim() && !!f.subject);
+  const isQueueValid = files.length > 0 && files.every(f => 
+    !!f.title.trim() && 
+    !!f.subject && 
+    subjects.some(s => s.id.toLowerCase() === f.subject.toLowerCase())
+  );
   const isFormValid = isGlobalValid && isQueueValid && !isUploading;
 
   // Real upload submit handler (Stage 5 & 6)
@@ -321,6 +338,10 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
       try {
         const docId = item.id;
         const cleanSubjectId = item.subject.toLowerCase();
+        const validSubject = subjects.find(s => s.id.toLowerCase() === cleanSubjectId);
+        if (!validSubject) {
+          throw new Error(`Invalid subject "${item.subject}" - not found in official catalog for selected college, branch, and semester.`);
+        }
         const fileName = item.file.name;
         const ext = fileName.split('.').pop()?.toLowerCase() || 'pdf';
         const isPptx = ext === 'ppt' || ext === 'pptx';
@@ -675,12 +696,16 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
               {files.map((item) => {
                 const aiState = ai.fileStates[item.id];
                 const isNeedsReview = aiState?.status === 'needs_review';
+                const validationIssues = getItemValidationIssues(item);
+                const hasBlockingError = validationIssues.length > 0 && item.status !== 'success' && item.status !== 'uploading';
 
                 return (
                   <div 
                     key={item.id} 
                     className={`border rounded-lg overflow-hidden transition-all duration-200 ${
-                      isNeedsReview
+                      hasBlockingError
+                        ? 'border-red-500/60 bg-red-500/[0.04] shadow-[0_0_12px_rgba(239,68,68,0.12)] hover:border-red-500/80'
+                        : isNeedsReview
                         ? 'border-amber-500/60 bg-amber-500/[0.04] shadow-[0_0_12px_rgba(245,158,11,0.1)]'
                         : item.isExpanded 
                         ? 'border-violet-500/30 bg-violet-500/[0.03] shadow-lg' 
@@ -693,7 +718,7 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
                       className="flex items-center justify-between p-3 select-none hover:bg-accent/15 cursor-pointer text-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <FileText className={`h-4 w-4 shrink-0 ${hasBlockingError ? 'text-red-400' : 'text-primary'}`} />
                         <div className="min-w-0 flex-1 pr-4">
                           <span className="font-semibold text-foreground truncate block" title={item.file.name}>
                             {item.file.name}
@@ -705,6 +730,17 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
+                        {/* Red Blocking Validation Badge */}
+                        {hasBlockingError && (
+                          <span 
+                            className="text-red-400 bg-red-500/15 border border-red-500/40 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wide flex items-center gap-1 font-bold cursor-help"
+                            title={validationIssues.join(' • ')}
+                          >
+                            <AlertCircle className="h-2.5 w-2.5 text-red-400 shrink-0" />
+                            <span>{validationIssues.length === 1 ? validationIssues[0] : `${validationIssues.length} issues to fix`}</span>
+                          </span>
+                        )}
+
                         {/* AI State Badge */}
                         {ai.isEnabled && aiState && (
                           <span className="flex items-center gap-1 font-bold">
@@ -829,14 +865,9 @@ export const NotesMassUploadDialog: React.FC<NotesMassUploadDialogProps> = ({
                             value={item.subject}
                             onChange={(e) => updateFileField(item.id, 'subject', e.target.value)}
                             disabled={isUploading || item.status === 'success'}
-                            className="bg-card text-foreground"
+                            className={`bg-card text-foreground ${!item.subject || !subjects.some(s => s.id.toLowerCase() === item.subject.toLowerCase()) ? 'border-red-500/50 focus:border-red-500' : ''}`}
                           >
                             <option value="">Select Subject</option>
-                            {item.subject && !subjects.some(s => s.id.toLowerCase() === item.subject.toLowerCase()) && (
-                              <option value={item.subject}>
-                                {item.displaySubject || item.subject.toUpperCase()}
-                              </option>
-                            )}
                             {subjects.map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.name} ({s.shortName})

@@ -172,10 +172,10 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
     setFiles(prev => prev.map(item => {
       if (item.id === id) {
         if (field === 'subject') {
-          const matchedSubject = subjects.find(s => s.id === value);
+          const matchedSubject = subjects.find(s => s.id.toLowerCase() === (value || '').toLowerCase());
           return {
             ...item,
-            subject: value,
+            subject: matchedSubject ? matchedSubject.id : '',
             displaySubject: matchedSubject ? matchedSubject.name : ''
           };
         }
@@ -285,7 +285,14 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
 
   // Validation
   const isGlobalValid = !!branch && !!semester && (!isGroupRequired || !!group) && !!college;
-  const isQueueValid = files.length > 0 && files.every(f => !!f.subject && !!f.type && !!f.url.trim() && f.isValidUrl && !f.isLoadingMetadata);
+  const isQueueValid = files.length > 0 && files.every(f => 
+    !!f.subject && 
+    subjects.some(s => s.id.toLowerCase() === f.subject.toLowerCase()) && 
+    !!f.type && 
+    !!f.url.trim() && 
+    f.isValidUrl && 
+    !f.isLoadingMetadata
+  );
   const isFormValid = isGlobalValid && isQueueValid && !isUploading;
 
   // Real upload submit handler
@@ -307,6 +314,10 @@ export const VideosMassUploadDialog: React.FC<VideosMassUploadDialogProps> = ({
       try {
         const docId = item.id;
         const cleanSubjectId = item.subject.toLowerCase();
+        const validSubject = subjects.find(s => s.id.toLowerCase() === cleanSubjectId);
+        if (!validSubject) {
+          throw new Error(`Invalid subject "${item.subject}" - not found in official catalog for selected college, branch, and semester.`);
+        }
         const isPlaylist = item.type === 'playlist';
 
         let youtubeId = '';

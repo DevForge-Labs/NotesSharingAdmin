@@ -35,12 +35,17 @@ export function mapDomainDtoToFirestore(
     semester?: string;
   }
 ): MappedFirestoreMetadata {
-  // Resolve subject
-  const subjectId = dto.subjectId || undefined;
+  // Resolve subject strictly against provided catalog
+  const rawSubjectId = dto.subjectId ? dto.subjectId.trim().toLowerCase() : undefined;
+  let canonicalSubjectId: string | undefined = undefined;
   let displaySubject: string | undefined = undefined;
-  if (subjectId) {
-    const found = subjectCatalog.find(s => s.id.toLowerCase() === subjectId.toLowerCase());
-    displaySubject = found ? found.name : subjectId;
+
+  if (rawSubjectId && Array.isArray(subjectCatalog) && subjectCatalog.length > 0) {
+    const found = subjectCatalog.find(s => s.id.toLowerCase() === rawSubjectId);
+    if (found) {
+      canonicalSubjectId = found.id.toLowerCase();
+      displaySubject = found.name;
+    }
   }
 
   // Resolve semester string ("Semester X")
@@ -59,9 +64,9 @@ export function mapDomainDtoToFirestore(
   const base: MappedFirestoreMetadata = {
     title: dto.title || undefined,
     description: dto.description || undefined,
-    subjectId: subjectId,
+    subjectId: canonicalSubjectId,
     displaySubject: displaySubject,
-    subject: subjectId, // Backward compatibility
+    subject: canonicalSubjectId, // Backward compatibility
     semester: semesterStr,
     branch: branch,
     college: college,

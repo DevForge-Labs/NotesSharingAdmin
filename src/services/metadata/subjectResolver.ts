@@ -80,7 +80,13 @@ export function getAllSubjectsFromCatalog(customCatalog?: any): CatalogSubjectIt
     'ee': ['electrical engineering', 'basic electrical', 'bee', 'ee'],
     'betc': ['electronics', 'basic electronics', 'betc'],
     'se': ['software engineering', 'se'],
-    'cn': ['computer networks', 'networking', 'cn']
+    'cn': ['computer networks', 'networking', 'cn'],
+    'ml': ['machine learning', 'ml'],
+    'ai': ['artificial intelligence', 'ai'],
+    'cloud': ['cloud computing', 'cloud'],
+    'cc': ['cloud computing', 'cc'],
+    'linux': ['linux', 'linux administration', 'operating system linux'],
+    'cp': ['competitive programming', 'cp']
   };
 
   const list = Array.from(map.values());
@@ -92,11 +98,47 @@ export function getAllSubjectsFromCatalog(customCatalog?: any): CatalogSubjectIt
 
 export function resolveSubject(
   textToScan: string,
-  context?: { college?: string; branch?: string; semester?: string }
+  context?: { college?: string; branch?: string; semester?: string },
+  subjectCatalogOptions?: { id: string; name: string }[]
 ): SubjectResolutionResult | null {
   if (!textToScan || !textToScan.trim()) return null;
 
-  const catalog = getAllSubjectsFromCatalog();
+  const aliasesMap: Record<string, string[]> = {
+    'dm': ['discrete mathematics', 'discrete maths', 'dm'],
+    'dbms': ['database management system', 'database', 'dbms'],
+    'coa': ['computer organization and architecture', 'computer organization', 'coa'],
+    'oopj': ['object oriented programming java', 'java', 'oopj', 'oops'],
+    'os': ['operating system', 'operating systems', 'os'],
+    'daa': ['design and analysis of algorithms', 'algorithms', 'daa'],
+    'ds': ['data structures', 'data structure', 'ds'],
+    'afl': ['automata', 'formal languages', 'afl', 'toc'],
+    'phy': ['physics', 'phy'],
+    'chem': ['chemistry', 'chem'],
+    'maths': ['mathematics', 'maths', 'de-la', 'de & la'],
+    'ee': ['electrical engineering', 'basic electrical', 'bee', 'ee'],
+    'betc': ['electronics', 'basic electronics', 'betc'],
+    'se': ['software engineering', 'se'],
+    'cn': ['computer networks', 'networking', 'cn'],
+    'ml': ['machine learning', 'ml'],
+    'ai': ['artificial intelligence', 'ai'],
+    'cloud': ['cloud computing', 'cloud'],
+    'cc': ['cloud computing', 'cc'],
+    'linux': ['linux', 'linux administration', 'operating system linux'],
+    'cp': ['competitive programming', 'cp']
+  };
+
+  const catalog: CatalogSubjectItem[] = (subjectCatalogOptions && subjectCatalogOptions.length > 0)
+    ? subjectCatalogOptions.map(item => {
+        const idLower = item.id.toLowerCase();
+        return {
+          id: idLower,
+          name: item.name,
+          shortName: item.name,
+          aliases: aliasesMap[idLower] || [idLower, item.name.toLowerCase()]
+        };
+      })
+    : getAllSubjectsFromCatalog();
+
   const cleanInput = textToScan.trim().toLowerCase();
   const normalizedInput = cleanInput.replace(/[\._\-]/g, ' ');
 

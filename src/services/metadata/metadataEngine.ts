@@ -31,6 +31,7 @@ export interface ExtractMetadataOptions {
     branch?: string;
     semester?: string;
   };
+  subjectCatalogOptions?: { id: string; name: string }[];
   onProgressStep?: (stepName: string) => void;
   signal?: AbortSignal;
 }
@@ -38,7 +39,7 @@ export interface ExtractMetadataOptions {
 export async function extractMetadataDeterministically(
   options: ExtractMetadataOptions
 ): Promise<DeterministicMetadataOutput> {
-  const { file, documentType, context, onProgressStep, signal } = options;
+  const { file, documentType, context, subjectCatalogOptions, onProgressStep, signal } = options;
 
   // 1. Reading filename...
   if (onProgressStep) onProgressStep('Reading filename...');
@@ -46,9 +47,9 @@ export async function extractMetadataDeterministically(
 
   // 2. Resolving subject...
   if (onProgressStep) onProgressStep('Resolving subject...');
-  let subjectRes = resolveSubject(filenameResult.cleanTitle, context);
+  let subjectRes = resolveSubject(filenameResult.cleanTitle, context, subjectCatalogOptions);
   if (!subjectRes && filenameResult.subjectToken) {
-    subjectRes = resolveSubject(filenameResult.subjectToken, context);
+    subjectRes = resolveSubject(filenameResult.subjectToken, context, subjectCatalogOptions);
   }
 
   const collegeId = resolveCollegeId(context?.college);
@@ -78,7 +79,7 @@ export async function extractMetadataDeterministically(
     pdfText = pdfResult.firstPageText;
 
     if (!subjectRes && pdfText) {
-      subjectRes = resolveSubject(pdfText, context);
+      subjectRes = resolveSubject(pdfText, context, subjectCatalogOptions);
     }
     if (!examType && pdfResult.extractedExamType) {
       examType = pdfResult.extractedExamType;

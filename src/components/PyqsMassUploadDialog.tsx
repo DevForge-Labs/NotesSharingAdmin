@@ -315,7 +315,7 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
       if (ai.isEnabled) {
         const catalogOptions = subjects.length > 0
           ? subjects.map(s => ({ id: s.id, name: s.name }))
-          : getAllSubjectsFromCatalog();
+          : [];
 
         ai.analyzeFiles(
           filesToAnalyze,
@@ -325,13 +325,13 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
           (id: string, metadata: MappedFirestoreMetadata) => {
             setFiles(prev => prev.map(item => {
               if (item.id === id) {
-                const allSubs = getAllSubjectsFromCatalog();
-                const matchedSub = subjects.find(s => s.id.toLowerCase() === (metadata.subjectId || '').toLowerCase())
-                  || allSubs.find(s => s.id.toLowerCase() === (metadata.subjectId || '').toLowerCase());
+                const matchedSub = metadata.subjectId
+                  ? subjects.find(s => s.id.toLowerCase() === metadata.subjectId!.toLowerCase())
+                  : undefined;
                 return {
                   ...item,
-                  subject: metadata.subjectId || item.subject,
-                  displaySubject: matchedSub ? matchedSub.name : (metadata.displaySubject || item.displaySubject),
+                  subject: matchedSub ? matchedSub.id : '',
+                  displaySubject: matchedSub ? matchedSub.name : '',
                   examType: metadata.examType || item.examType,
                   examYear: metadata.examYear || item.examYear,
                   topics: metadata.topics || [],
@@ -371,10 +371,10 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
     setFiles(prev => prev.map(item => {
       if (item.id === id) {
         if (field === 'subject') {
-          const matchedSubject = subjects.find(s => s.id === value);
+          const matchedSubject = subjects.find(s => s.id.toLowerCase() === (value || '').toLowerCase());
           return {
             ...item,
-            subject: value,
+            subject: matchedSubject ? matchedSubject.id : '',
             displaySubject: matchedSubject ? matchedSubject.name : ''
           };
         }
@@ -415,7 +415,12 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
 
   // Validation
   const isGlobalValid = !!branch && !!semester && (!isGroupRequired || !!group) && !!college;
-  const isQueueValid = files.length > 0 && files.every(f => !!f.subject && !!f.examType && !!f.examYear);
+  const isQueueValid = files.length > 0 && files.every(f => 
+    !!f.subject && 
+    subjects.some(s => s.id.toLowerCase() === f.subject.toLowerCase()) && 
+    !!f.examType && 
+    !!f.examYear
+  );
   const isFormValid = isGlobalValid && isQueueValid && !isUploading;
 
   // Real upload submit handler
@@ -437,6 +442,10 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
       try {
         const docId = item.id;
         const cleanSubjectId = item.subject.toLowerCase();
+        const validSubject = subjects.find(s => s.id.toLowerCase() === cleanSubjectId);
+        if (!validSubject) {
+          throw new Error(`Invalid subject "${item.subject}" - not found in official catalog for selected college, branch, and semester.`);
+        }
         const normalizedExamType = getNormalizedExamType(item.examType);
         const fileExtension = item.file.name.substring(item.file.name.lastIndexOf('.') + 1).toLowerCase() || 'pdf';
         const isPptx = fileExtension === 'ppt' || fileExtension === 'pptx';
@@ -566,7 +575,11 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
   // Helper to determine validation issues for an individual queue item
   const getItemValidationIssues = (item: UploadQueueItem): string[] => {
     const issues: string[] = [];
-    if (!item.subject) issues.push('Subject is required');
+    if (!item.subject) {
+      issues.push('Subject is required');
+    } else if (!subjects.some(s => s.id.toLowerCase() === item.subject.toLowerCase())) {
+      issues.push('Valid catalog subject is required');
+    }
     if (!item.examType) issues.push('Exam type is required');
     if (!item.examYear) issues.push('Year is required');
     if (item.status === 'failed' && item.error) issues.push(item.error);
@@ -973,14 +986,9 @@ export const PyqsMassUploadDialog: React.FC<PyqsMassUploadDialogProps> = ({
                             value={item.subject}
                             onChange={(e) => updateFileField(item.id, 'subject', e.target.value)}
                             disabled={isUploading || item.status === 'success'}
-                            className={`bg-card text-foreground ${!item.subject ? 'border-red-500/50 focus:border-red-500' : ''}`}
+                            className={`bg-card text-foreground ${!item.subject || !subjects.some(s => s.id.toLowerCase() === item.subject.toLowerCase()) ? 'border-red-500/50 focus:border-red-500' : ''}`}
                           >
                             <option value="">Select Subject</option>
-                            {item.subject && !subjects.some(s => s.id.toLowerCase() === item.subject.toLowerCase()) && (
-                              <option value={item.subject}>
-                                {item.displaySubject || item.subject.toUpperCase()}
-                              </option>
-                            )}
                             {subjects.map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.name} ({s.shortName})
