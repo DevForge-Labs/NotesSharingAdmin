@@ -13,6 +13,7 @@ import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 import { BulkDeleteDialog } from '@/components/BulkDeleteDialog';
 import { cn } from '@/lib/utils';
 import { useResourceDeepLink } from '@/hooks/useResourceDeepLink';
+import { useExpandableList, SeeMoreTableRow } from '@/components/ui/SeeMoreAffordance';
 import {
   useNotesCatalog,
   formatBranchName,
@@ -111,6 +112,164 @@ const getFileIcon = (mimeType?: string) => {
   if (mime.includes('word') || mime.includes('officedocument')) return <FileText className="h-10 w-10 text-blue-500 shrink-0" />;
   if (mime.includes('zip') || mime.includes('rar')) return <Layers className="h-10 w-10 text-amber-500 shrink-0" />;
   return <File className="h-10 w-10 text-primary/75 shrink-0" />;
+};
+
+interface NotesSubjectGroupCardProps {
+  group: { id: string; name: string; notes: NoteItem[] };
+  isSelectionMode: boolean;
+  selectedIds: string[];
+  setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>;
+  allSelected: boolean;
+  handleSelectAll: () => void;
+  handleOpenDetails: (note: NoteItem) => void;
+  formatFileSize: (bytes: any) => string;
+}
+
+const NotesSubjectGroupCard: React.FC<NotesSubjectGroupCardProps> = ({
+  group,
+  isSelectionMode,
+  selectedIds,
+  setSelectedIds,
+  allSelected,
+  handleSelectAll,
+  handleOpenDetails,
+  formatFileSize
+}) => {
+  const { visibleItems, isExpanded, toggleExpand, hasMore, remainingCount } = useExpandableList(group.notes, 5);
+
+  return (
+    <Card className="border-border overflow-hidden shadow-premium bg-card/60">
+      {/* Subject Group Header */}
+      <div className="bg-accent/40 px-6 py-4 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20">
+            <BookOpen className="h-4 w-4" />
+          </div>
+          <div>
+            <h4 className="font-bold text-base text-foreground tracking-tight">{group.name}</h4>
+            <p className="text-xs text-muted-foreground">
+              Subject Group • {group.notes.length} {group.notes.length === 1 ? 'Document' : 'Documents'}
+            </p>
+          </div>
+        </div>
+        <Badge variant="secondary" className="font-semibold text-xs bg-accent text-foreground">
+          {group.notes.length} Notes
+        </Badge>
+      </div>
+
+      {/* Subject Group Data Table */}
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-accent/20 text-xs font-semibold text-foreground/90 uppercase tracking-wider whitespace-nowrap">
+                {isSelectionMode && (
+                  <th className="p-4 w-12 text-center" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={handleSelectAll}
+                      className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
+                    />
+                  </th>
+                )}
+                <th className="p-4">S.NO</th>
+                <th className="p-4 w-[25%]">Title</th>
+                <th className="p-4">Subject</th>
+                <th className="p-4">Uploader</th>
+                <th className="p-4">Branch</th>
+                <th className="p-4">SEM</th>
+                <th className="p-4">File Size</th>
+                <th className="p-4 text-center">Downloads</th>
+                <th className="p-4 text-center">Views</th>
+                <th className="p-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border text-sm whitespace-nowrap">
+              {visibleItems.map((note, index) => {
+                const isSelected = selectedIds.includes(note.id);
+                return (
+                  <tr
+                    key={note.id}
+                    className={cn(
+                      'hover:bg-accent/30 cursor-pointer transition-colors',
+                      isSelectionMode && isSelected && 'bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/15'
+                    )}
+                    onClick={() => {
+                      if (isSelectionMode) {
+                        setSelectedIds(prev =>
+                          prev.includes(note.id)
+                            ? prev.filter(id => id !== note.id)
+                            : [...prev, note.id]
+                        );
+                      } else {
+                        handleOpenDetails(note);
+                      }
+                    }}
+                  >
+                    {isSelectionMode && (
+                      <td className="p-4 w-12 text-center" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            setSelectedIds(prev =>
+                              prev.includes(note.id)
+                                ? prev.filter(id => id !== note.id)
+                                : [...prev, note.id]
+                            );
+                          }}
+                          className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
+                        />
+                      </td>
+                    )}
+                    <td className="p-4 font-semibold text-xs text-muted-foreground">{index + 1}</td>
+                    <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={note.title}>
+                      {note.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
+                    </td>
+                    <td className="p-4 text-muted-foreground font-medium">
+                      {note.displaySubject || note.subject || <span className="text-muted-foreground/50 italic">—</span>}
+                    </td>
+                    <td className="p-4 font-medium">
+                      {note.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
+                    </td>
+                    <td className="p-4">{getBranchInitials(note.branch)}</td>
+                    <td className="p-4">{getSemesterNumber(note.semester)}</td>
+                    <td className="p-4 text-xs font-mono">{formatFileSize(note.fileSize)}</td>
+                    <td className="p-4 text-center font-bold">
+                      {(note.downloadsCount !== undefined ? note.downloadsCount : (note as any).downloads || 0).toLocaleString()}
+                    </td>
+                    <td className="p-4 text-center font-bold">{(note.viewsCount || 0).toLocaleString()}</td>
+                    <td className="p-4 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleOpenDetails(note);
+                        }}
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {hasMore && (
+                <SeeMoreTableRow
+                  colSpan={isSelectionMode ? 11 : 10}
+                  isExpanded={isExpanded}
+                  onToggle={toggleExpand}
+                  remainingCount={remainingCount}
+                />
+              )}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
 };
 
 export const Notes: React.FC = () => {
@@ -1208,129 +1367,17 @@ export const Notes: React.FC = () => {
           ) : (
             <div className="space-y-6">
               {subjectGroups.map(group => (
-                <Card key={group.id} className="border-border overflow-hidden shadow-premium bg-card/60">
-                  {/* Subject Group Header */}
-                  <div className="bg-accent/40 px-6 py-4 border-b border-border flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                        <BookOpen className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-base text-foreground tracking-tight">{group.name}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          Subject Group • {group.notes.length} {group.notes.length === 1 ? 'Document' : 'Documents'}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="font-semibold text-xs bg-accent text-foreground">
-                      {group.notes.length} Notes
-                    </Badge>
-                  </div>
-
-                  {/* Subject Group Data Table */}
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-border bg-accent/20 text-xs font-semibold text-foreground/90 uppercase tracking-wider whitespace-nowrap">
-                            {isSelectionMode && (
-                              <th className="p-4 w-12 text-center" onClick={e => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  checked={allSelected}
-                                  onChange={handleSelectAll}
-                                  className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
-                                />
-                              </th>
-                            )}
-                            <th className="p-4">S.NO</th>
-                            <th className="p-4 w-[25%]">Title</th>
-                            <th className="p-4">Subject</th>
-                            <th className="p-4">Uploader</th>
-                            <th className="p-4">Branch</th>
-                            <th className="p-4">SEM</th>
-                            <th className="p-4">File Size</th>
-                            <th className="p-4 text-center">Downloads</th>
-                            <th className="p-4 text-center">Views</th>
-                            <th className="p-4 text-right">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border text-sm whitespace-nowrap">
-                          {group.notes.map((note, index) => {
-                            const isSelected = selectedIds.includes(note.id);
-                            return (
-                              <tr
-                                key={note.id}
-                                className={cn(
-                                  'hover:bg-accent/30 cursor-pointer transition-colors',
-                                  isSelectionMode && isSelected && 'bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/15'
-                                )}
-                                onClick={() => {
-                                  if (isSelectionMode) {
-                                    setSelectedIds(prev =>
-                                      prev.includes(note.id)
-                                        ? prev.filter(id => id !== note.id)
-                                        : [...prev, note.id]
-                                    );
-                                  } else {
-                                    handleOpenDetails(note);
-                                  }
-                                }}
-                              >
-                                {isSelectionMode && (
-                                  <td className="p-4 w-12 text-center" onClick={e => e.stopPropagation()}>
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelected}
-                                      onChange={() => {
-                                        setSelectedIds(prev =>
-                                          prev.includes(note.id)
-                                            ? prev.filter(id => id !== note.id)
-                                            : [...prev, note.id]
-                                        );
-                                      }}
-                                      className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
-                                    />
-                                  </td>
-                                )}
-                                <td className="p-4 font-semibold text-xs text-muted-foreground">{index + 1}</td>
-                                <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={note.title}>
-                                  {note.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
-                                </td>
-                                <td className="p-4 text-muted-foreground font-medium">
-                                  {note.displaySubject || note.subject || <span className="text-muted-foreground/50 italic">—</span>}
-                                </td>
-                                <td className="p-4 font-medium">
-                                  {note.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
-                                </td>
-                                <td className="p-4">{getBranchInitials(note.branch)}</td>
-                                <td className="p-4">{getSemesterNumber(note.semester)}</td>
-                                <td className="p-4 text-xs font-mono">{formatFileSize(note.fileSize)}</td>
-                                <td className="p-4 text-center font-bold">
-                                  {(note.downloadsCount !== undefined ? note.downloadsCount : (note as any).downloads || 0).toLocaleString()}
-                                </td>
-                                <td className="p-4 text-center font-bold">{(note.viewsCount || 0).toLocaleString()}</td>
-                                <td className="p-4 text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      handleOpenDetails(note);
-                                    }}
-                                  >
-                                    <Eye className="h-3.5 w-3.5" /> View
-                                  </Button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
+                <NotesSubjectGroupCard
+                  key={group.id}
+                  group={group}
+                  isSelectionMode={isSelectionMode}
+                  selectedIds={selectedIds}
+                  setSelectedIds={setSelectedIds}
+                  allSelected={allSelected}
+                  handleSelectAll={handleSelectAll}
+                  handleOpenDetails={handleOpenDetails}
+                  formatFileSize={formatFileSize}
+                />
               ))}
             </div>
           )}

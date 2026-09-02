@@ -4,6 +4,7 @@ import { db } from '@/lib/firebase';
 import { isValidNoteDocument } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { SeeMoreTableRow, SeeMoreListAffordance } from '@/components/ui/SeeMoreAffordance';
 import { 
   Users as UsersIcon, 
   Upload,
@@ -177,7 +178,7 @@ export const Dashboard: React.FC = () => {
         const timeB = getTimestampMs(b.uploadedAt || b.uploadTimestamp);
         return timeB - timeA;
       });
-      setRecentUploads(sortedByDate.slice(0, 5));
+      setRecentUploads(sortedByDate);
 
       // Sort by downloadsCount descending for Most Downloaded
       const sortedByDownloads = [...notesList].sort((a, b) => {
@@ -185,7 +186,7 @@ export const Dashboard: React.FC = () => {
         const dlB = Number(b.downloadsCount !== undefined ? b.downloadsCount : (b.downloads || 0));
         return dlB - dlA;
       });
-      setMostDownloaded(sortedByDownloads.slice(0, 5));
+      setMostDownloaded(sortedByDownloads);
 
       // Sort by viewsCount descending for Most Viewed
       const sortedByViews = [...notesList].sort((a, b) => {
@@ -193,7 +194,7 @@ export const Dashboard: React.FC = () => {
         const vB = Number(b.viewsCount || 0);
         return vB - vA;
       });
-      setMostViewed(sortedByViews.slice(0, 5));
+      setMostViewed(sortedByViews);
 
       setStats({
         totalUsers: totalUsersCount,
@@ -662,7 +663,7 @@ export const Dashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border text-sm">
-                    {recentUploads.map((note) => (
+                    {recentUploads.slice(0, 5).map((note) => (
                       <tr key={note.id} className="hover:bg-accent/10 transition-colors duration-150">
                         <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={note.title}>
                           {note.title || <span className="text-muted-foreground/60 italic font-normal">Untitled Document</span>}
@@ -687,6 +688,13 @@ export const Dashboard: React.FC = () => {
                         </td>
                       </tr>
                     ))}
+                    {recentUploads.length > 5 && (
+                      <SeeMoreTableRow
+                        colSpan={5}
+                        to="/notes"
+                        remainingCount={recentUploads.length - 5}
+                      />
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -712,7 +720,7 @@ export const Dashboard: React.FC = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-border">
-                  {mostDownloaded.map((note, index) => (
+                  {mostDownloaded.slice(0, 5).map((note, index) => (
                     <div key={note.id} className="flex items-center justify-between p-4 hover:bg-accent/10 transition-colors">
                       <div className="min-w-0 flex-1 pr-4">
                         <div className="flex items-center gap-2">
@@ -733,6 +741,12 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                  {mostDownloaded.length > 5 && (
+                    <SeeMoreListAffordance
+                      to="/notes"
+                      remainingCount={mostDownloaded.length - 5}
+                    />
+                  )}
                 </div>
               )}
             </CardContent>
@@ -753,7 +767,7 @@ export const Dashboard: React.FC = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-border">
-                  {mostViewed.map((note, index) => (
+                  {mostViewed.slice(0, 5).map((note, index) => (
                     <div key={note.id} className="flex items-center justify-between p-4 hover:bg-accent/10 transition-colors">
                       <div className="min-w-0 flex-1 pr-4">
                         <div className="flex items-center gap-2">
@@ -774,6 +788,12 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                  {mostViewed.length > 5 && (
+                    <SeeMoreListAffordance
+                      to="/notes"
+                      remainingCount={mostViewed.length - 5}
+                    />
+                  )}
                 </div>
               )}
             </CardContent>

@@ -13,6 +13,7 @@ import { AdminRemoveDialog } from '@/components/AdminRemoveDialog';
 import { BulkDeleteDialog } from '@/components/BulkDeleteDialog';
 import { cn } from '@/lib/utils';
 import { useResourceDeepLink } from '@/hooks/useResourceDeepLink';
+import { useExpandableList, SeeMoreTableRow } from '@/components/ui/SeeMoreAffordance';
 import {
   useAppCatalog,
   formatBranchName,
@@ -101,6 +102,168 @@ const formatResourceType = (type?: string) => {
   if (clean.includes('lecture') || clean.includes('single')) return 'Single Lecture';
   if (clean.includes('one_shot') || clean.includes('oneshot')) return 'One Shot';
   return type;
+};
+
+interface VideosSubjectGroupCardProps {
+  group: { id: string; name: string; videos: VideoItem[] };
+  isSelectionMode: boolean;
+  selectedIds: string[];
+  setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>;
+  allSelected: boolean;
+  handleSelectAll: () => void;
+  handleOpenDetails: (item: VideoItem) => void;
+}
+
+const VideosSubjectGroupCard: React.FC<VideosSubjectGroupCardProps> = ({
+  group,
+  isSelectionMode,
+  selectedIds,
+  setSelectedIds,
+  allSelected,
+  handleSelectAll,
+  handleOpenDetails
+}) => {
+  const { visibleItems, isExpanded, toggleExpand, hasMore, remainingCount } = useExpandableList(group.videos, 5);
+
+  return (
+    <Card className="border-border overflow-hidden shadow-premium bg-card/60">
+      <div className="bg-accent/40 px-6 py-4 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20">
+            <BookOpen className="h-4 w-4" />
+          </div>
+          <div>
+            <h4 className="font-bold text-base text-foreground tracking-tight">{group.name}</h4>
+            <p className="text-xs text-muted-foreground">
+              Subject Group • {group.videos.length} {group.videos.length === 1 ? 'Video' : 'Videos'}
+            </p>
+          </div>
+        </div>
+        <Badge variant="secondary" className="font-semibold text-xs bg-accent text-foreground">
+          {group.videos.length} Videos
+        </Badge>
+      </div>
+
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-accent/20 text-xs font-semibold text-foreground/90 uppercase tracking-wider whitespace-nowrap">
+                {isSelectionMode && (
+                  <th className="p-4 w-12 text-center" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={handleSelectAll}
+                      className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
+                    />
+                  </th>
+                )}
+                <th className="p-4">S.NO</th>
+                <th className="p-4 w-[25%]">Title</th>
+                <th className="p-4">Subject</th>
+                <th className="p-4">Channel</th>
+                <th className="p-4">Type</th>
+                <th className="p-4">Uploader</th>
+                <th className="p-4">Branch</th>
+                <th className="p-4">SEM</th>
+                <th className="p-4 text-center">Likes</th>
+                <th className="p-4 text-center">Views</th>
+                <th className="p-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border text-sm whitespace-nowrap">
+              {visibleItems.map((item, index) => {
+                const isSelected = selectedIds.includes(item.id);
+                return (
+                  <tr
+                    key={item.id}
+                    className={cn(
+                      'hover:bg-accent/30 cursor-pointer transition-colors',
+                      isSelectionMode && isSelected && 'bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/15'
+                    )}
+                    onClick={() => {
+                      if (isSelectionMode) {
+                        setSelectedIds(prev =>
+                          prev.includes(item.id)
+                            ? prev.filter(id => id !== item.id)
+                            : [...prev, item.id]
+                        );
+                      } else {
+                        handleOpenDetails(item);
+                      }
+                    }}
+                  >
+                    {isSelectionMode && (
+                      <td className="p-4 w-12 text-center" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            setSelectedIds(prev =>
+                              prev.includes(item.id)
+                                ? prev.filter(id => id !== item.id)
+                                : [...prev, item.id]
+                            );
+                          }}
+                          className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
+                        />
+                      </td>
+                    )}
+                    <td className="p-4 font-semibold text-xs text-muted-foreground">{index + 1}</td>
+                    <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={item.title}>
+                      {item.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
+                    </td>
+                    <td className="p-4 text-muted-foreground font-medium">
+                      {item.displaySubject || item.subject || <span className="text-muted-foreground/50 italic">—</span>}
+                    </td>
+                    <td className="p-4 text-muted-foreground font-medium">
+                      {item.channelName || <span className="text-muted-foreground/50 italic font-normal">—</span>}
+                    </td>
+                    <td className="p-4">
+                      <Badge variant="secondary" className="font-semibold text-[10px]">
+                        {formatResourceType(item.youtubeResourceType)}
+                      </Badge>
+                    </td>
+                    <td className="p-4 font-medium">
+                      {item.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
+                    </td>
+                    <td className="p-4">{getBranchInitials(item.branch)}</td>
+                    <td className="p-4">{getSemesterNumber(item.semester)}</td>
+                    <td className="p-4 text-center font-bold">
+                      {(item.upvotes !== undefined ? item.upvotes : item.likesCount || 0).toLocaleString()}
+                    </td>
+                    <td className="p-4 text-center font-bold">{(item.viewsCount || 0).toLocaleString()}</td>
+                    <td className="p-4 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleOpenDetails(item);
+                        }}
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {hasMore && (
+                <SeeMoreTableRow
+                  colSpan={isSelectionMode ? 12 : 11}
+                  isExpanded={isExpanded}
+                  onToggle={toggleExpand}
+                  remainingCount={remainingCount}
+                />
+              )}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
 };
 
 export const Videos: React.FC = () => {
@@ -1124,135 +1287,16 @@ export const Videos: React.FC = () => {
           ) : (
             <div className="space-y-6">
               {subjectGroups.map(group => (
-                <Card key={group.id} className="border-border overflow-hidden shadow-premium bg-card/60">
-                  <div className="bg-accent/40 px-6 py-4 border-b border-border flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                        <BookOpen className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-base text-foreground tracking-tight">{group.name}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          Subject Group • {group.videos.length} {group.videos.length === 1 ? 'Video' : 'Videos'}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="font-semibold text-xs bg-accent text-foreground">
-                      {group.videos.length} Videos
-                    </Badge>
-                  </div>
-
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-border bg-accent/20 text-xs font-semibold text-foreground/90 uppercase tracking-wider whitespace-nowrap">
-                            {isSelectionMode && (
-                              <th className="p-4 w-12 text-center" onClick={e => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  checked={allSelected}
-                                  onChange={handleSelectAll}
-                                  className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
-                                />
-                              </th>
-                            )}
-                            <th className="p-4">S.NO</th>
-                            <th className="p-4 w-[25%]">Title</th>
-                            <th className="p-4">Subject</th>
-                            <th className="p-4">Channel</th>
-                            <th className="p-4">Type</th>
-                            <th className="p-4">Uploader</th>
-                            <th className="p-4">Branch</th>
-                            <th className="p-4">SEM</th>
-                            <th className="p-4 text-center">Likes</th>
-                            <th className="p-4 text-center">Views</th>
-                            <th className="p-4 text-right">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border text-sm whitespace-nowrap">
-                          {group.videos.map((item, index) => {
-                            const isSelected = selectedIds.includes(item.id);
-                            return (
-                              <tr
-                                key={item.id}
-                                className={cn(
-                                  'hover:bg-accent/30 cursor-pointer transition-colors',
-                                  isSelectionMode && isSelected && 'bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/15'
-                                )}
-                                onClick={() => {
-                                  if (isSelectionMode) {
-                                    setSelectedIds(prev =>
-                                      prev.includes(item.id)
-                                        ? prev.filter(id => id !== item.id)
-                                        : [...prev, item.id]
-                                    );
-                                  } else {
-                                    handleOpenDetails(item);
-                                  }
-                                }}
-                              >
-                                {isSelectionMode && (
-                                  <td className="p-4 w-12 text-center" onClick={e => e.stopPropagation()}>
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelected}
-                                      onChange={() => {
-                                        setSelectedIds(prev =>
-                                          prev.includes(item.id)
-                                            ? prev.filter(id => id !== item.id)
-                                            : [...prev, item.id]
-                                        );
-                                      }}
-                                      className="rounded border-input text-violet-600 focus:ring-violet-500 h-4 w-4 cursor-pointer"
-                                    />
-                                  </td>
-                                )}
-                                <td className="p-4 font-semibold text-xs text-muted-foreground">{index + 1}</td>
-                                <td className="p-4 font-semibold text-foreground/90 max-w-xs truncate" title={item.title}>
-                                  {item.title || <span className="text-muted-foreground/50 italic font-normal">Untitled</span>}
-                                </td>
-                                <td className="p-4 text-muted-foreground font-medium">
-                                  {item.displaySubject || item.subject || <span className="text-muted-foreground/50 italic">—</span>}
-                                </td>
-                                <td className="p-4 text-muted-foreground font-medium">
-                                  {item.channelName || <span className="text-muted-foreground/50 italic font-normal">—</span>}
-                                </td>
-                                <td className="p-4">
-                                  <Badge variant="secondary" className="font-semibold text-[10px]">
-                                    {formatResourceType(item.youtubeResourceType)}
-                                  </Badge>
-                                </td>
-                                <td className="p-4 font-medium">
-                                  {item.uploaderName || <span className="text-muted-foreground/50 italic font-normal">Anonymous</span>}
-                                </td>
-                                <td className="p-4">{getBranchInitials(item.branch)}</td>
-                                <td className="p-4">{getSemesterNumber(item.semester)}</td>
-                                <td className="p-4 text-center font-bold">
-                                  {(item.upvotes !== undefined ? item.upvotes : item.likesCount || 0).toLocaleString()}
-                                </td>
-                                <td className="p-4 text-center font-bold">{(item.viewsCount || 0).toLocaleString()}</td>
-                                <td className="p-4 text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 text-primary hover:bg-primary/10 ml-auto"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      handleOpenDetails(item);
-                                    }}
-                                  >
-                                    <Eye className="h-3.5 w-3.5" /> View
-                                  </Button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
+                <VideosSubjectGroupCard
+                  key={group.id}
+                  group={group}
+                  isSelectionMode={isSelectionMode}
+                  selectedIds={selectedIds}
+                  setSelectedIds={setSelectedIds}
+                  allSelected={allSelected}
+                  handleSelectAll={handleSelectAll}
+                  handleOpenDetails={handleOpenDetails}
+                />
               ))}
             </div>
           )}
