@@ -129,6 +129,7 @@ export const DashboardLayout: React.FC<{ children?: React.ReactNode }> = ({ chil
 
   const navItems: SidebarItem[] = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+    { name: 'Interactive Hub', path: '/interactive-hub', icon: <Sparkles className="h-4 w-4 text-indigo-400" /> },
     { name: 'Notes', path: '/notes', icon: <FileText className="h-4 w-4" /> },
     { name: 'Assignments', path: '/assignments', icon: <GraduationCap className="h-4 w-4" /> },
     { name: 'PYQs', path: '/pyqs', icon: <Layers className="h-4 w-4" /> },

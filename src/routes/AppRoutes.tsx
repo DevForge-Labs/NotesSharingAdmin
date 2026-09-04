@@ -20,6 +20,7 @@ import { Users } from '@/pages/Users';
 import { Settings } from '@/pages/Settings';
 import { ReportsPage } from '@/pages/ReportsPage';
 import { Subjects } from '@/pages/Subjects';
+import { InteractiveHub } from '@/pages/InteractiveHub';
 
 // Root Protected Admin Layout Component
 const ProtectedLayout: React.FC = () => {
@@ -61,6 +62,7 @@ export const AppRoutes: React.FC = () => {
       {/* Protected Admin Routes (Rendered inside persistent ProtectedLayout & DashboardLayout) */}
       <Route element={<ProtectedLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/interactive-hub" element={<InteractiveHub />} />
         <Route path="/notes" element={<Notes />} />
         <Route path="/assignments" element={<Assignments />} />
         <Route path="/pyqs" element={<Pyqs />} />
